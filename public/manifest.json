@@ -12,4 +12,46 @@
     {
       "src": "logo192.png",
       "type": "image/png",
-      "sizes": "192x192
+      "sizes": "192x192"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#3498db",
+  "background_color": "#ffffff",
+  "orientation": "portrait",
+  "categories": ["utilities", "productivity"],
+  "screenshots": [
+    {
+      "src": "screenshot1.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "platform": "wide",
+      "label": "Homescreen of HVAC Assistant"
+    },
+    {
+      "src": "screenshot2.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "platform": "wide",
+      "label": "Diagnostic tool interface"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Diagnosis",
+      "url": "/",
+      "icons": [{ "src": "new-diagnosis.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Saved Diagnostics",
+      "url": "/saved",
+      "icons": [{ "src": "saved-diagnosis.png", "sizes": "96x96" }]
+    }
+  ]
+}
