@@ -23,10 +23,13 @@ const OfflineMessage = styled.div`
   font-weight: bold;
 `;
 
+// Configure API URL based on environment
+const API_URL = process.env.REACT_APP_BACKEND_URL || 'https://your-heroku-app-name.herokuapp.com';
+
 const DiagnosticTool = ({ isOnline }) => {
   const [step, setStep] = useState(1);
   const [systemType, setSystemType] = useState('');
-  const [, setSymptoms] = useState('');
+  const [symptoms, setSymptoms] = useState('');
   const [systemInfo, setSystemInfo] = useState({});
   const [diagnosticResult, setDiagnosticResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -57,34 +60,66 @@ const DiagnosticTool = ({ isOnline }) => {
       let diagnosisResult;
 
       if (isOnline) {
-        // Online mode - use OpenAI API
-        const response = await axios.post('/api/diagnose', {
-          systemType,
-          systemInfo,
-          symptoms: symptomData
-        });
-        diagnosisResult = response.data;
+        try {
+          console.log('Attempting online diagnosis with Heroku API...');
+          
+          // Use the Heroku API for diagnosis
+          const response = await axios.post(`${API_URL}/api/diagnose`, {
+            systemType,
+            systemInfo,
+            symptoms: symptomData
+          }, { 
+            timeout: 25000, // 25 second timeout to stay under Heroku's 30s limit
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          diagnosisResult = response.data;
+          console.log('Diagnosis result received:', diagnosisResult);
+          
+          // Add source information
+          diagnosisResult.source = 'ai';
+        } catch (onlineError) {
+          console.warn('Online diagnosis failed, falling back to offline mode:', onlineError);
+          
+          // Fall back to offline diagnosis
+          diagnosisResult = await getOfflineDiagnosticData(
+            systemType, 
+            systemInfo, 
+            symptomData
+          );
+          
+          // Add note about fallback
+          diagnosisResult.note = "Using offline diagnosis due to connection issues with AI service.";
+          diagnosisResult.source = 'offline';
+        }
       } else {
         // Offline mode - use cached data
+        console.log('Using offline diagnostic data...');
         diagnosisResult = await getOfflineDiagnosticData(
           systemType, 
           systemInfo, 
           symptomData
         );
+        diagnosisResult.source = 'offline';
       }
 
       setDiagnosticResult(diagnosisResult);
       
       // Save to local storage for offline access
       if (diagnosisResult) {
-        saveDiagnosticToLocalStorage({
+        const diagnosticToSave = {
           id: session,
           timestamp: new Date().toISOString(),
           systemType,
           systemInfo,
           symptoms: symptomData,
           result: diagnosisResult
-        });
+        };
+        
+        console.log('Saving diagnostic to local storage:', diagnosticToSave);
+        saveDiagnosticToLocalStorage(diagnosticToSave);
       }
     } catch (err) {
       console.error('Diagnostic error:', err);
@@ -104,6 +139,14 @@ const DiagnosticTool = ({ isOnline }) => {
     setError(null);
     setSession(`session-${Date.now()}`);
   };
+
+  // When using the app in development, print info to help with debugging
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('API URL:', API_URL);
+      console.log('Online status:', isOnline);
+    }
+  }, [isOnline]);
 
   return (
     <Container>
