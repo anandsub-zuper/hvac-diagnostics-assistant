@@ -1,0 +1,727 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2025-05-01",
+  "systemTypes": {
+    "central-ac": {
+      "name": "Central Air Conditioning",
+      "issues": {
+        "not-cooling": {
+          "title": "System Not Cooling",
+          "symptoms": [
+            "Air coming from vents is not cold",
+            "House temperature higher than thermostat setting",
+            "System runs constantly but doesn't cool"
+          ],
+          "possibleCauses": [
+            {
+              "cause": "Dirty air filter",
+              "severity": "Medium",
+              "description": "Restricted airflow due to clogged filter",
+              "probability": "High"
+            },
+            {
+              "cause": "Low refrigerant",
+              "severity": "High",
+              "description": "System may have a leak",
+              "probability": "Medium"
+            },
+            {
+              "cause": "Frozen evaporator coil",
+              "severity": "High",
+              "description": "Ice buildup preventing proper cooling",
+              "probability": "Medium"
+            },
+            {
+              "cause": "Faulty compressor",
+              "severity": "High",
+              "description": "Compressor not circulating refrigerant properly",
+              "probability": "Low"
+            },
+            {
+              "cause": "Thermostat issues",
+              "severity": "Low",
+              "description": "Incorrect settings or faulty thermostat",
+              "probability": "Medium"
+            }
+          ],
+          "troubleshooting": [
+            "Check and replace the air filter if dirty",
+            "Verify thermostat settings are correct",
+            "Check circuit breakers to ensure power is supplied",
+            "Inspect outdoor unit for debris or blockages",
+            "Check evaporator coil for ice buildup (if accessible)",
+            "Call a professional to check refrigerant levels if previous steps don't resolve the issue"
+          ],
+          "requiredTools": [
+            "Replacement air filter",
+            "Thermometer",
+            "Multimeter (optional for electrical testing)"
+          ],
+          "repairComplexity": "Moderate",
+          "diyFeasibility": "Partial",
+          "additionalNotes": "Low refrigerant and compressor issues typically require professional service"
+        },
+        "making-noise": {
+          "title": "Unusual Noises",
+          "symptoms": [
+            "Banging or clanking sounds",
+            "Persistent buzzing",
+            "Screeching or whistling",
+            "Clicking sounds when system starts or stops"
+          ],
+          "possibleCauses": [
+            {
+              "cause": "Loose components",
+              "severity": "Medium",
+              "description": "Parts may have come loose due to vibration",
+              "probability": "High"
+            },
+            {
+              "cause": "Fan blade obstruction",
+              "severity": "Medium",
+              "description": "Object interfering with fan movement",
+              "probability": "Medium"
+            },
+            {
+              "cause": "Failing compressor",
+              "severity": "High",
+              "description": "Internal compressor components wearing out",
+              "probability": "Low"
+            },
+            {
+              "cause": "Loose or damaged belt",
+              "severity": "Medium",
+              "description": "Belt connecting motor to blower may be worn",
+              "probability": "Medium"
+            }
+          ],
+          "troubleshooting": [
+            "Identify the source of the noise (indoor or outdoor unit)",
+            "Turn off power to the system",
+            "For outdoor unit, remove debris around unit and check for loose panels",
+            "For indoor unit, check for loose ductwork or mounting brackets",
+            "If the noise persists, professional diagnosis is required"
+          ],
+          "requiredTools": [
+            "Screwdriver set",
+            "Work gloves"
+          ],
+          "repairComplexity": "Moderate",
+          "diyFeasibility": "Partial",
+          "additionalNotes": "Never attempt to open the compressor or handle refrigerant lines"
+        },
+        "short-cycling": {
+          "title": "Short Cycling",
+          "symptoms": [
+            "System turns on and off frequently",
+            "Short operation periods (less than 10 minutes)",
+            "Inconsistent temperature"
+          ],
+          "possibleCauses": [
+            {
+              "cause": "Dirty air filter",
+              "severity": "Medium",
+              "description": "Restricted airflow causing system to overheat",
+              "probability": "High"
+            },
+            {
+              "cause": "Oversized AC unit",
+              "severity": "Medium",
+              "description": "Unit cools space too quickly and shuts off",
+              "probability": "Low"
+            },
+            {
+              "cause": "Low refrigerant",
+              "severity": "High",
+              "description": "Causes system to shut down on safety controls",
+              "probability": "Medium"
+            },
+            {
+              "cause": "Faulty thermostat",
+              "severity": "Medium",
+              "description": "Incorrect temperature readings",
+              "probability": "Medium"
+            }
+          ],
+          "troubleshooting": [
+            "Replace air filter",
+            "Check thermostat placement (away from heat sources)",
+            "Ensure all vents are open and unobstructed",
+            "Check for proper refrigerant charge (professional)",
+            "Verify thermostat operation"
+          ],
+          "requiredTools": [
+            "Replacement air filter",
+            "Thermometer"
+          ],
+          "repairComplexity": "Moderate to High",
+          "diyFeasibility": "Partial",
+          "additionalNotes": "Short cycling can significantly reduce system lifespan if not addressed"
+        }
+      }
+    },
+    "heat-pump": {
+      "name": "Heat Pump",
+      "issues": {
+        "not-heating": {
+          "title": "Not Heating in Winter",
+          "symptoms": [
+            "Blows cold air in heating mode",
+            "House temperature lower than thermostat setting",
+            "Frequent defrost cycles"
+          ],
+          "possibleCauses": [
+            {
+              "cause": "Defrost cycle operation",
+              "severity": "Low",
+              "description": "Normal operation during cold weather",
+              "probability": "High"
+            },
+            {
+              "cause": "Valve malfunction",
+              "severity": "High",
+              "description": "Reversing valve stuck or failed",
+              "probability": "Medium"
+            },
+            {
+              "cause": "Low refrigerant",
+              "severity": "High",
+              "description": "Insufficient refrigerant due to leak",
+              "probability": "Medium"
+            },
+            {
+              "cause": "Auxiliary heat issue",
+              "severity": "Medium",
+              "description": "Backup heating system not engaging",
+              "probability": "Medium"
+            }
+          ],
+          "troubleshooting": [
+            "Verify thermostat is set to 'Heat' mode",
+            "Check if outdoor unit is running and not covered in ice",
+            "Ensure emergency heat switch is not engaged unless necessary",
+            "Check air filter and replace if dirty",
+            "Verify circuit breakers are on",
+            "If temperature outside is below 30°F, check if auxiliary heat is working"
+          ],
+          "requiredTools": [
+            "Replacement air filter",
+            "Thermometer"
+          ],
+          "repairComplexity": "Moderate to Complex",
+          "diyFeasibility": "Limited",
+          "additionalNotes": "Heat pumps are less effective in extremely cold temperatures"
+        },
+        "ice-buildup": {
+          "title": "Ice Buildup on Outdoor Unit",
+          "symptoms": [
+            "Visible ice on outdoor coil",
+            "Ice covering entire outdoor unit",
+            "Reduced heating performance"
+          ],
+          "possibleCauses": [
+            {
+              "cause": "Normal defrost operation",
+              "severity": "Low",
+              "description": "Some ice is normal in winter; should melt during defrost cycle",
+              "probability": "High"
+            },
+            {
+              "cause": "Defrost control failure",
+              "severity": "High",
+              "description": "System not initiating defrost cycle",
+              "probability": "Medium"
+            },
+            {
+              "cause": "Low refrigerant",
+              "severity": "High",
+              "description": "Can cause coil to operate at lower temperatures",
+              "probability": "Medium"
+            },
+            {
+              "cause": "Restricted airflow",
+              "severity": "Medium",
+              "description": "Blocked coils or fan issues",
+              "probability": "Medium"
+            }
+          ],
+          "troubleshooting": [
+            "Check for proper clearance around outdoor unit",
+            "Turn unit off and gently remove debris (not ice) from coil",
+            "Ensure outdoor unit is level and drain is clear",
+            "Check and replace air filter if dirty",
+            "If ice persists after 24 hours, contact professional"
+          ],
+          "requiredTools": [
+            "Replacement air filter",
+            "Soft brush"
+          ],
+          "repairComplexity": "Moderate to High",
+          "diyFeasibility": "Limited",
+          "additionalNotes": "NEVER use sharp objects to remove ice from coils"
+        }
+      }
+    },
+    "furnace": {
+      "name": "Furnace",
+      "issues": {
+        "no-heat": {
+          "title": "No Heat",
+          "symptoms": [
+            "No warm air from vents",
+            "Blower runs but air is cold",
+            "Furnace doesn't turn on"
+          ],
+          "possibleCauses": [
+            {
+              "cause": "Pilot light out (older systems)",
+              "severity": "Medium",
+              "description": "Pilot flame extinguished",
+              "probability": "High"
+            },
+            {
+              "cause": "Ignition failure",
+              "severity": "Medium",
+              "description": "Electronic ignition not functioning",
+              "probability": "High"
+            },
+            {
+              "cause": "Gas supply issue",
+              "severity": "Medium",
+              "description": "Insufficient gas flow or closed valve",
+              "probability": "Medium"
+            },
+            {
+              "cause": "Limit switch tripped",
+              "severity": "High",
+              "description": "Safety switch activated due to overheating",
+              "probability": "Medium"
+            },
+            {
+              "cause": "Dirty filter",
+              "severity": "Low",
+              "description": "Restricted airflow causing system shutdown",
+              "probability": "High"
+            }
+          ],
+          "troubleshooting": [
+            "Check thermostat settings and battery",
+            "Replace air filter if dirty",
+            "Verify gas supply is on (check other gas appliances)",
+            "For pilot systems, check if pilot light is lit",
+            "Reset furnace by turning off power for 30 seconds, then restore",
+            "Check for any error codes on control board (flashing lights)"
+          ],
+          "requiredTools": [
+            "Replacement air filter",
+            "Long lighter (for pilot systems)",
+            "Flashlight"
+          ],
+          "repairComplexity": "Moderate",
+          "diyFeasibility": "Partial",
+          "additionalNotes": "Never attempt repairs if you smell gas - leave the area and call a professional immediately"
+        },
+        "short-cycling": {
+          "title": "Short Cycling",
+          "symptoms": [
+            "Furnace turns on and off frequently",
+            "Short bursts of operation",
+            "Inconsistent temperature"
+          ],
+          "possibleCauses": [
+            {
+              "cause": "Dirty flame sensor",
+              "severity": "Medium",
+              "description": "Sensor covered in carbon deposits",
+              "probability": "High"
+            },
+            {
+              "cause": "Improper airflow",
+              "severity": "Medium",
+              "description": "Blocked returns or closed vents",
+              "probability": "High"
+            },
+            {
+              "cause": "Oversized furnace",
+              "severity": "Low",
+              "description": "Furnace too large for the space",
+              "probability": "Low"
+            },
+            {
+              "cause": "Thermostat location issues",
+              "severity": "Low",
+              "description": "Thermostat getting false readings",
+              "probability": "Medium"
+            }
+          ],
+          "troubleshooting": [
+            "Replace air filter",
+            "Ensure all vents and returns are open and unobstructed",
+            "Check thermostat location for drafts or heat sources",
+            "If accessible, inspect flame sensor for corrosion or buildup",
+            "Check for flashing error codes on control board"
+          ],
+          "requiredTools": [
+            "Replacement air filter",
+            "Fine sandpaper (for flame sensor cleaning - professional task)"
+          ],
+          "repairComplexity": "Moderate",
+          "diyFeasibility": "Partial",
+          "additionalNotes": "Flame sensor cleaning should ideally be performed by a professional"
+        },
+        "unusual-smell": {
+          "title": "Unusual Smell",
+          "symptoms": [
+            "Burning smell when furnace runs",
+            "Rotten egg smell",
+            "Musty odor"
+          ],
+          "possibleCauses": [
+            {
+              "cause": "Dust burning off (first use of season)",
+              "severity": "Low",
+              "description": "Dust accumulated during off-season burning off heat exchanger",
+              "probability": "High"
+            },
+            {
+              "cause": "Gas leak",
+              "severity": "Critical",
+              "description": "Natural gas or propane leak (rotten egg smell)",
+              "probability": "Low"
+            },
+            {
+              "cause": "Electrical component overheating",
+              "severity": "High",
+              "description": "Wiring or components may be failing",
+              "probability": "Medium"
+            },
+            {
+              "cause": "Mold in ductwork",
+              "severity": "Medium",
+              "description": "Mold growth causing musty smell",
+              "probability": "Medium"
+            }
+          ],
+          "troubleshooting": [
+            "For first use smell, monitor to see if it dissipates within 1 hour",
+            "For gas smell, exit home immediately and call gas company",
+            "For burning electrical smell, turn off furnace and call professional",
+            "For musty smells, check humidifier and ductwork for mold"
+          ],
+          "requiredTools": [
+            "None - safety first"
+          ],
+          "repairComplexity": "Varies",
+          "diyFeasibility": "Limited",
+          "additionalNotes": "Gas leaks are extremely dangerous and require immediate professional attention"
+        }
+      }
+    },
+    "boiler": {
+      "name": "Boiler",
+      "issues": {
+        "no-heat": {
+          "title": "No Heat",
+          "symptoms": [
+            "Radiators or floor not heating",
+            "Boiler running but no heat distribution",
+            "Boiler not starting"
+          ],
+          "possibleCauses": [
+            {
+              "cause": "Low water pressure",
+              "severity": "Medium",
+              "description": "Insufficient pressure in system",
+              "probability": "High"
+            },
+            {
+              "cause": "Air in system",
+              "severity": "Medium",
+              "description": "Air bubbles blocking water flow",
+              "probability": "High"
+            },
+            {
+              "cause": "Circulation pump failure",
+              "severity": "High",
+              "description": "Pump not moving water through system",
+              "probability": "Medium"
+            },
+            {
+              "cause": "Thermostat issues",
+              "severity": "Low",
+              "description": "Incorrect settings or faulty thermostat",
+              "probability": "Medium"
+            }
+          ],
+          "troubleshooting": [
+            "Check boiler pressure gauge (should typically be 1-1.5 bar)",
+            "If pressure is low, repressurize system following manufacturer instructions",
+            "Bleed radiators to remove trapped air",
+            "Check if circulation pump is running (you may hear it)",
+            "Verify thermostat settings"
+          ],
+          "requiredTools": [
+            "Radiator bleeding key",
+            "Pressure gauge"
+          ],
+          "repairComplexity": "Moderate",
+          "diyFeasibility": "Partial",
+          "additionalNotes": "Boiler systems can vary significantly - always refer to the specific manual when possible"
+        },
+        "leaking": {
+          "title": "Water Leakage",
+          "symptoms": [
+            "Visible water around boiler",
+            "Dropping pressure on gauge",
+            "Water stains on floor or walls"
+          ],
+          "possibleCauses": [
+            {
+              "cause": "Pressure relief valve discharge",
+              "severity": "Medium",
+              "description": "Valve releasing excess pressure",
+              "probability": "High"
+            },
+            {
+              "cause": "Pump seal failure",
+              "severity": "Medium",
+              "description": "Seals degraded and leaking",
+              "probability": "Medium"
+            },
+            {
+              "cause": "Corroded pipes or connections",
+              "severity": "High",
+              "description": "Age-related deterioration",
+              "probability": "Medium"
+            },
+            {
+              "cause": "Heat exchanger crack",
+              "severity": "Critical",
+              "description": "Major internal component failure",
+              "probability": "Low"
+            }
+          ],
+          "troubleshooting": [
+            "Turn off boiler",
+            "If possible, identify the source of the leak",
+            "Check pressure - if too high, system may need draining",
+            "Inspect visible connections for signs of leakage",
+            "For anything beyond minor connection leaks, call a professional"
+          ],
+          "requiredTools": [
+            "Towels for temporary containment",
+            "Adjustable wrench for minor fitting tightening"
+          ],
+          "repairComplexity": "Moderate to High",
+          "diyFeasibility": "Limited",
+          "additionalNotes": "Major leaks or heat exchanger issues require immediate professional service"
+        }
+      }
+    },
+    "mini-split": {
+      "name": "Mini-Split / Ductless System",
+      "issues": {
+        "not-cooling": {
+          "title": "Not Cooling",
+          "symptoms": [
+            "Unit runs but doesn't cool",
+            "Low airflow from indoor unit",
+            "System turns off shortly after starting"
+          ],
+          "possibleCauses": [
+            {
+              "cause": "Dirty air filters",
+              "severity": "Medium",
+              "description": "Restricted airflow through indoor unit",
+              "probability": "High"
+            },
+            {
+              "cause": "Outdoor unit obstructed",
+              "severity": "Medium",
+              "description": "Debris blocking airflow to outdoor unit",
+              "probability": "Medium"
+            },
+            {
+              "cause": "Refrigerant issue",
+              "severity": "High",
+              "description": "Low refrigerant or leak",
+              "probability": "Medium"
+            },
+            {
+              "cause": "Communication error",
+              "severity": "Medium",
+              "description": "Indoor and outdoor units not communicating",
+              "probability": "Low"
+            }
+          ],
+          "troubleshooting": [
+            "Clean or replace air filters in indoor unit",
+            "Clear any debris from around outdoor unit",
+            "Check for error codes on remote or display panel",
+            "Ensure proper voltage to the system",
+            "Reset system by disconnecting power for 1-2 minutes"
+          ],
+          "requiredTools": [
+            "Soft brush for cleaning filters",
+            "Multimeter (optional for electrical testing)"
+          ],
+          "repairComplexity": "Moderate",
+          "diyFeasibility": "Partial",
+          "additionalNotes": "Mini-splits require professional service for refrigerant issues"
+        },
+        "water-leaking": {
+          "title": "Water Leaking from Indoor Unit",
+          "symptoms": [
+            "Water dripping from indoor unit",
+            "Water stains on wall",
+            "Puddles beneath unit"
+          ],
+          "possibleCauses": [
+            {
+              "cause": "Clogged condensate drain",
+              "severity": "Medium",
+              "description": "Drain line blocked by debris or algae",
+              "probability": "High"
+            },
+            {
+              "cause": "Improper installation slope",
+              "severity": "Medium",
+              "description": "Unit or drain line not properly angled",
+              "probability": "Medium"
+            },
+            {
+              "cause": "Frozen evaporator coil",
+              "severity": "High",
+              "description": "Ice melting and overwhelming drain system",
+              "probability": "Medium"
+            },
+            {
+              "cause": "Damaged drain pan",
+              "severity": "Medium",
+              "description": "Crack or hole in condensate collection pan",
+              "probability": "Low"
+            }
+          ],
+          "troubleshooting": [
+            "Turn off unit to prevent further leakage",
+            "Check and clean the condensate drain line",
+            "Verify proper slope of drain line (should be downhill)",
+            "Look for ice on coil - if present, allow to thaw and check airflow",
+            "Clean air filters to ensure proper airflow"
+          ],
+          "requiredTools": [
+            "Small wet/dry vacuum for drain cleaning",
+            "Soft brush for filter cleaning",
+            "Spirit level to check installation angle"
+          ],
+          "repairComplexity": "Moderate",
+          "diyFeasibility": "Good",
+          "additionalNotes": "Regular maintenance can prevent most leakage issues"
+        }
+      }
+    },
+    "package-unit": {
+      "name": "Package Unit",
+      "issues": {
+        "performance-issues": {
+          "title": "Poor Performance",
+          "symptoms": [
+            "Inconsistent heating or cooling",
+            "Higher than normal utility bills",
+            "Uneven temperatures throughout space"
+          ],
+          "possibleCauses": [
+            {
+              "cause": "Dirty filters",
+              "severity": "Medium",
+              "description": "Restricted airflow through unit",
+              "probability": "High"
+            },
+            {
+              "cause": "Dirty coils",
+              "severity": "Medium",
+              "description": "Heat transfer efficiency reduced",
+              "probability": "High"
+            },
+            {
+              "cause": "Refrigerant issues",
+              "severity": "High",
+              "description": "Incorrect charge or leak",
+              "probability": "Medium"
+            },
+            {
+              "cause": "Ductwork problems",
+              "severity": "Medium",
+              "description": "Leaks or poor insulation in ductwork",
+              "probability": "Medium"
+            }
+          ],
+          "troubleshooting": [
+            "Replace air filters",
+            "Check for blocked vents or returns",
+            "Inspect ductwork for visible damage where accessible",
+            "Clean outdoor coil if safe and accessible",
+            "Check insulation on exposed ductwork"
+          ],
+          "requiredTools": [
+            "Replacement air filters",
+            "Garden hose (for gentle coil cleaning)",
+            "Flashlight for inspection"
+          ],
+          "repairComplexity": "Moderate",
+          "diyFeasibility": "Partial",
+          "additionalNotes": "Package units should receive professional maintenance at least annually"
+        },
+        "not-starting": {
+          "title": "Unit Won't Start",
+          "symptoms": [
+            "No response when thermostat calls for heating/cooling",
+            "Unit attempts to start but immediately shuts off",
+            "No sounds or signs of operation"
+          ],
+          "possibleCauses": [
+            {
+              "cause": "Power issues",
+              "severity": "Medium",
+              "description": "Tripped breaker or electrical problem",
+              "probability": "High"
+            },
+            {
+              "cause": "Thermostat malfunction",
+              "severity": "Low",
+              "description": "Incorrect settings or faulty thermostat",
+              "probability": "Medium"
+            },
+            {
+              "cause": "Safety switch triggered",
+              "severity": "High",
+              "description": "High pressure, temperature or other safety cutout",
+              "probability": "Medium"
+            },
+            {
+              "cause": "Contactor or capacitor failure",
+              "severity": "High",
+              "description": "Electrical components worn out",
+              "probability": "Medium"
+            }
+          ],
+          "troubleshooting": [
+            "Check circuit breakers and reset if tripped",
+            "Verify thermostat has power and is set correctly",
+            "Look for error codes or flashing lights on control board",
+            "Check disconnect switch at unit is in ON position",
+            "Wait 30 minutes and try again (some units have time delays)"
+          ],
+          "requiredTools": [
+            "Flashlight",
+            "Screwdriver for access panels",
+            "Multimeter (optional for electrical testing)"
+          ],
+          "repairComplexity": "Moderate to High",
+          "diyFeasibility": "Limited",
+          "additionalNotes": "Electrical component failures typically require professional repair"
+        }
+      }
+    }
+  }
+}
