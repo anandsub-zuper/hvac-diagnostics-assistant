@@ -1,16 +1,30 @@
-// src/server/api.js (for Node.js server)
+// server.js
 const express = require('express');
+const cors = require('cors');
 const { OpenAI } = require('openai');
-const router = express.Router();
 require('dotenv').config();
 
-// Initialize OpenAI API client
+const app = express();
+// Heroku will assign a port via the PORT environment variable
+// You don't need to specify port 3001 or any other specific port
+const PORT = process.env.PORT || 3000; // Fallback to 3000 for local development
+
+// Configure OpenAI client
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Endpoint for HVAC diagnostic analysis
-router.post('/diagnose', async (req, res) => {
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Health check endpoint
+app.get('/', (req, res) => {
+  res.send('HVAC Diagnostics API is running');
+});
+
+// Diagnostic endpoint
+app.post('/api/diagnose', async (req, res) => {
   try {
     const { systemType, systemInfo, symptoms } = req.body;
     
@@ -23,7 +37,7 @@ router.post('/diagnose', async (req, res) => {
     
     // Call OpenAI API
     const completion = await openai.chat.completions.create({
-      model: "gpt-4", // Or gpt-3.5-turbo depending on needs and budget
+      model: "gpt-3.5-turbo", // Using a faster model to reduce latency
       messages: [
         {
           role: "system",
@@ -32,14 +46,11 @@ router.post('/diagnose', async (req, res) => {
         { role: "user", content: prompt }
       ],
       temperature: 0.2, // Lower temperature for more deterministic/factual responses
-      max_tokens: 1000,
+      max_tokens: 800, // Reduced slightly to improve response time
     });
 
     // Process the response
     const diagnosisResult = processDiagnosisResult(completion.choices[0].message.content);
-    
-    // Cache the result for offline use
-    // This would be handled by the service worker
     
     return res.json(diagnosisResult);
   } catch (error) {
@@ -141,4 +152,7 @@ function formatTextResponse(text) {
   return sections;
 }
 
-module.exports = router;
+// Start the server
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
