@@ -26,7 +26,7 @@ const OfflineMessage = styled.div`
 const DiagnosticTool = ({ isOnline }) => {
   const [step, setStep] = useState(1);
   const [systemType, setSystemType] = useState('');
-  const [symptoms, setSymptoms] = useState('');
+  const [, setSymptoms] = useState('');
   const [systemInfo, setSystemInfo] = useState({});
   const [diagnosticResult, setDiagnosticResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
