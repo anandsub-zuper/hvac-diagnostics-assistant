@@ -7,6 +7,7 @@
     "@testing-library/react": "^14.0.0",
     "@testing-library/user-event": "^14.4.3",
     "axios": "^1.6.2",
+    "openai": "^4.20.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.19.0",
@@ -31,9 +32,7 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "lint": "eslint .",
-    "format": "prettier --write \"**/*.{js,jsx,json,css}\"",
-    "analyze": "source-map-explorer 'build/static/js/*.js'"
+    "dev": "netlify dev"
   },
   "eslintConfig": {
     "extends": [
@@ -54,15 +53,6 @@
     ]
   },
   "devDependencies": {
-    "eslint": "^8.54.0",
-    "eslint-config-prettier": "^9.0.0",
-    "eslint-plugin-prettier": "^5.0.1",
-    "eslint-plugin-react": "^7.33.2",
-    "prettier": "^3.1.0",
-    "source-map-explorer": "^2.5.3"
-  },
-  "engines": {
-    "node": ">=16.0.0",
-    "npm": ">=8.0.0"
+    "netlify-cli": "^17.7.0"
   }
 }
