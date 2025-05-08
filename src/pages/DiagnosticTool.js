@@ -64,7 +64,9 @@ const DiagnosticTool = ({ isOnline }) => {
           console.log('Attempting online diagnosis with Heroku API...');
           
           // Use the Heroku API for diagnosis
-          const response = await axios.post(`${API_URL}/api/diagnose`, {
+        const apiUrl = new URL('api/diagnose', API_URL).toString();
+        console.log('Using API URL:', apiUrl); // Debug logging
+          const response = await axios.post(apiUrl, {
             systemType,
             systemInfo,
             symptoms: symptomData
