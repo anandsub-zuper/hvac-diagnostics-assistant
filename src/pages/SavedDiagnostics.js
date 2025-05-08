@@ -1,5 +1,5 @@
 // src/pages/SavedDiagnostics.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { getFromLocalStorage, removeFromLocalStorage } from '../utils/storage';
@@ -243,14 +243,9 @@ const SavedDiagnostics = () => {
   const [activeSystemType, setActiveSystemType] = useState('all');
   
   useEffect(() => {
-    // Load saved diagnostics from localStorage
+    // Load saved diagnostics
     loadSavedDiagnostics();
   }, []);
-  
-  useEffect(() => {
-    // Filter diagnostics based on search query and active system type
-    filterDiagnostics();
-  }, [searchQuery, activeSystemType, diagnostics]);
   
   const loadSavedDiagnostics = () => {
     const saved = getFromLocalStorage('savedDiagnostics') || [];
@@ -261,7 +256,7 @@ const SavedDiagnostics = () => {
     setDiagnostics(sortedDiagnostics);
   };
   
-  const filterDiagnostics = () => {
+  const filterDiagnostics = useCallback(() => {
     let filtered = [...diagnostics];
     
     // Filter by system type
@@ -285,7 +280,12 @@ const SavedDiagnostics = () => {
     }
     
     setFilteredDiagnostics(filtered);
-  };
+  }, [diagnostics, searchQuery, activeSystemType]);
+  
+  useEffect(() => {
+    // Filter diagnostics based on search query and active system type
+    filterDiagnostics();
+  }, [filterDiagnostics]);
   
   const handleSearch = (e) => {
     setSearchQuery(e.target.value);
