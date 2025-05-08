@@ -29,7 +29,7 @@ const API_URL = process.env.REACT_APP_BACKEND_URL || 'https://hvac-diagnostics-a
 const DiagnosticTool = ({ isOnline }) => {
   const [step, setStep] = useState(1);
   const [systemType, setSystemType] = useState('');
-  const [symptoms, setSymptoms] = useState('');
+  const [, setSymptoms] = useState('');
   const [systemInfo, setSystemInfo] = useState({});
   const [diagnosticResult, setDiagnosticResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
