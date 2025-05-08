@@ -24,7 +24,7 @@ const OfflineMessage = styled.div`
 `;
 
 // Configure API URL based on environment
-const API_URL = process.env.REACT_APP_BACKEND_URL || 'https://your-heroku-app-name.herokuapp.com';
+const API_URL = process.env.REACT_APP_BACKEND_URL || 'https://hvac-diagnostics-api-f10ccd81443c.herokuapp.com/';
 
 const DiagnosticTool = ({ isOnline }) => {
   const [step, setStep] = useState(1);
