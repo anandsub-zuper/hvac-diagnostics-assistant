@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#3498db" />
+    <meta name="description" content="HVAC System Diagnostics Assistant - An offline-capable tool for HVAC technicians" />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    
+    <!-- PWA manifest -->
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    
+    <!-- iOS PWA specific meta tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="HVAC Assistant" />
+    
+    <!-- iOS splash screens -->
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/splash/apple-splash-2048-2732.png" media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/splash/apple-splash-1668-2388.png" media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/splash/apple-splash-1536-2048.png" media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/splash/apple-splash-1125-2436.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/splash/apple-splash-828-1792.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/splash/apple-splash-750-1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+    
+    <!-- Twitter/Open Graph sharing tags -->
+    <meta property="og:title" content="HVAC System Diagnostics Assistant" />
+    <meta property="og:description" content="A tool for HVAC technicians to diagnose system issues, even when offline." />
+    <meta property="og:image" content="%PUBLIC_URL%/og-image.png" />
+    <meta property="og:url" content="https://hvac-assistant.example.com" />
+    <meta name="twitter:card" content="summary_large_image" />
+    
+    <!-- Preconnect to API server to improve performance -->
+    <link rel="preconnect" href="https://api.hvac-assistant.example.com" />
+    
+    <title>HVAC System Diagnostics Assistant</title>
+    
+    <!-- Preload critical assets -->
+    <link rel="preload" href="%PUBLIC_URL%/fonts/main-font.woff2" as="font" type="font/woff2" crossorigin />
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+    
+    <!-- Offline detection -->
+    <script>
+      window.addEventListener('online', () => {
+        document.body.classList.remove('offline');
+        document.body.classList.add('online');
+      });
+      
+      window.addEventListener('offline', () => {
+        document.body.classList.remove('online');
+        document.body.classList.add('offline');
+      });
+      
+      // Set initial status
+      if (navigator.onLine) {
+        document.body.classList.add('online');
+      } else {
+        document.body.classList.add('offline');
+      }
+    </script>
+    
+    <!-- Fallback content for browsers without JavaScript -->
+    <div id="fallback" style="display: none;">
+      <h1>HVAC System Diagnostics Assistant</h1>
+      <p>This application requires JavaScript to be enabled. Please enable JavaScript in your browser settings and reload the page.</p>
+    </div>
+    <script>
+      document.getElementById('fallback').style.display = 'none';
+    </script>
+    <noscript>
+      <style>
+        #fallback {
+          display: block !important;
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+          text-align: center;
+        }
+      </style>
+    </noscript>
+  </body>
+</html>
