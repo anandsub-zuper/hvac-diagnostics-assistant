@@ -1,4 +1,4 @@
-// server.js - Complete file with enhanced image analysis
+// server.js - Complete file with fixed diagnosis endpoint AND enhanced image analysis
 const express = require('express');
 const cors = require('cors');
 const { OpenAI } = require('openai');
@@ -45,7 +45,7 @@ app.get('/', (req, res) => {
   });
 });
 
-// Diagnostic endpoint with improved response formatting
+// IMPROVED Diagnostic endpoint with better response formatting
 app.post('/api/diagnose', async (req, res) => {
   try {
     // Check if OpenAI is configured
@@ -162,323 +162,7 @@ app.post('/api/diagnose', async (req, res) => {
   }
 });
 
-// Improved prompt constructor that forces JSON structure
-function constructBetterDiagnosticPrompt(systemType, systemInfo, symptoms) {
-  let prompt = `## HVAC Diagnostic Request\n\n`;
-  
-  // System classification
-  prompt += `### System Information\n`;
-  prompt += `- **Type:** ${systemType}\n`;
-  
-  // Add system info if available
-  if (systemInfo) {
-    if (systemInfo.brand) prompt += `- **Brand:** ${systemInfo.brand}\n`;
-    if (systemInfo.model) prompt += `- **Model:** ${systemInfo.model}\n`;
-    if (systemInfo.age) prompt += `- **Age:** ${systemInfo.age}\n`;
-    if (systemInfo.lastServiced) prompt += `- **Last Service:** ${systemInfo.lastServiced}\n`;
-    if (systemInfo.tonnage) prompt += `- **Tonnage:** ${systemInfo.tonnage}\n`;
-    if (systemInfo.fuelType) prompt += `- **Fuel Type:** ${systemInfo.fuelType}\n`;
-    if (systemInfo.additionalInfo) prompt += `- **Additional Notes:** ${systemInfo.additionalInfo}\n`;
-  }
-  
-  // Reported symptoms - this is crucial information
-  prompt += `\n### Reported Symptoms\n${symptoms}\n\n`;
-  
-  // Include seasonal context
-  const currentMonth = new Date().getMonth() + 1; // 1-12
-  const season = currentMonth >= 5 && currentMonth <= 9 ? 'summer/cooling' : 'winter/heating';
-  prompt += `### Seasonal Context\n- Current season: ${season} season\n\n`;
-  
-  // Clear diagnostic instructions with formatting guidance
-  prompt += `## Diagnostic Instructions
-
-Based on the system information and symptoms provided, please provide a detailed HVAC diagnosis.
-
-YOU MUST REPLY WITH A VALID JSON OBJECT in the following exact structure:
-{
-  "primaryIssue": "Brief statement of most likely cause",
-  "possibleIssues": [
-    {
-      "issue": "Issue name",
-      "severity": "Low/Medium/High",
-      "description": "Brief description",
-      "likelihood": 80
-    },
-    {
-      "issue": "Secondary issue name",
-      "severity": "Low/Medium/High",
-      "description": "Brief description",
-      "likelihood": 60
-    }
-  ],
-  "troubleshooting": [
-    "Step 1: Detailed instruction",
-    "Step 2: Detailed instruction"
-  ],
-  "requiredItems": [
-    "Item 1",
-    "Item 2"
-  ],
-  "repairComplexity": "Easy/Moderate/Complex",
-  "additionalNotes": "Important information",
-  "safetyWarnings": "Any critical safety considerations"
-}
-
-Your response MUST be a VALID JSON object with AT LEAST the following fields:
-- primaryIssue (string)
-- possibleIssues (array of objects)
-- troubleshooting (array of strings)
-- requiredItems (array of strings)
-- repairComplexity (string)
-- additionalNotes (string)
-
-Each possibleIssue MUST include:
-- issue (string)
-- severity (string - must be "Low", "Medium", or "High")
-- description (string)
-- likelihood (number between 1-100)
-
-For possibleIssues, include at least 2-3 potential causes. For troubleshooting, include at least 3-5 specific steps.`;
-
-  return prompt;
-}
-
-// New improved response processor
-function processDiagnosisResultImproved(content) {
-  try {
-    // First try standard JSON parsing
-    return JSON.parse(content);
-  } catch (error) {
-    console.error("JSON parsing error in diagnosis result:", error);
-    
-    // Try to extract JSON from a markdown code block
-    const jsonBlockMatch = content.match(/```(?:json)?\s*({[\s\S]*?})\s*```/);
-    if (jsonBlockMatch && jsonBlockMatch[1]) {
-      try {
-        return JSON.parse(jsonBlockMatch[1]);
-      } catch (blockError) {
-        console.error("Failed to parse JSON from code block:", blockError);
-      }
-    }
-    
-    // Try to extract any JSON-like object
-    const jsonObjectMatch = content.match(/{[\s\S]*?}/);
-    if (jsonObjectMatch) {
-      try {
-        // Clean up the matched text by removing common issues
-        const cleanedJson = jsonObjectMatch[0]
-          .replace(/(\w+):/g, '"$1":') // Add quotes to keys
-          .replace(/:\s*'([^']*)'/g, ': "$1"') // Replace single quotes with double quotes
-          .replace(/,\s*}/g, '}') // Remove trailing commas
-          .replace(/,\s*]/g, ']'); // Remove trailing commas in arrays
-          
-        return JSON.parse(cleanedJson);
-      } catch (objectError) {
-        console.error("Failed to parse extracted JSON-like object:", objectError);
-      }
-    }
-    
-    // As a last resort, use text-based extraction
-    return formatTextResponseBetter(content);
-  }
-}
-
-// Improved text response formatter
-function formatTextResponseBetter(text) {
-  // Default structure with empty fields
-  const sections = {
-    primaryIssue: "Could not determine primary issue",
-    possibleIssues: [],
-    troubleshooting: [],
-    requiredItems: [],
-    repairComplexity: "Unknown",
-    additionalNotes: "The diagnosis could not be properly formatted. Please try again with more detailed symptoms."
-  };
-  
-  // Check for primary issue
-  const primaryMatch = text.match(/(?:primary|main|likely)\s+(?:issue|problem|cause):?\s*([^\n.]+)/i);
-  if (primaryMatch && primaryMatch[1]) {
-    sections.primaryIssue = primaryMatch[1].trim();
-  }
-  
-  // Extract possible issues
-  let possibleIssues = [];
-  
-  // Look for structured issue lists with severity indicators
-  const issueBlockMatch = text.match(/possible issues:[\s\S]*?(?=\n\n|\ntroubl)/i);
-  if (issueBlockMatch) {
-    const issueBlock = issueBlockMatch[0];
-    const issueLines = issueBlock.split("\n").slice(1); // Skip the header
-    
-    issueLines.forEach(line => {
-      const lineText = line.trim();
-      if (!lineText) return;
-      
-      // Try to extract severity and description
-      const issueSeverityMatch = lineText.match(/^(?:[0-9]\.|\*|-|•)?\s*([^:]+)(?::|\s*-)\s*(?:\(([^\)]+)\))?\s*(.+)?$/);
-      if (issueSeverityMatch) {
-        const issueName = issueSeverityMatch[1]?.trim() || "Unknown issue";
-        let severity = "Medium"; // Default
-        let description = issueSeverityMatch[3]?.trim() || "";
-        
-        // Try to determine severity
-        if (issueSeverityMatch[2]) {
-          const sevText = issueSeverityMatch[2].toLowerCase();
-          if (sevText.includes("high") || sevText.includes("critical") || sevText.includes("severe")) {
-            severity = "High";
-          } else if (sevText.includes("low") || sevText.includes("minor")) {
-            severity = "Low";
-          }
-        } else if (description.toLowerCase().includes("serious") || description.toLowerCase().includes("immediate")) {
-          severity = "High";
-        } else if (description.toLowerCase().includes("minor") || description.toLowerCase().includes("simple")) {
-          severity = "Low";
-        }
-        
-        // Calculate a rough likelihood
-        let likelihood = 80;
-        if (possibleIssues.length > 0) {
-          likelihood = Math.max(30, 80 - (possibleIssues.length * 15));
-        }
-        
-        possibleIssues.push({
-          issue: issueName,
-          severity: severity,
-          description: description || `${issueName} may be causing the problem`,
-          likelihood: likelihood
-        });
-      } else if (lineText.length > 5 && !lineText.startsWith("=")) {
-        // Simple fallback for unstructured lines
-        possibleIssues.push({
-          issue: lineText,
-          severity: "Medium",
-          description: "",
-          likelihood: 50
-        });
-      }
-    });
-  }
-  
-  // If we couldn't find structured issues, try simpler patterns
-  if (possibleIssues.length === 0) {
-    // Look for lines with "issue", "problem", "malfunction" etc.
-    const simpleIssueMatches = text.match(/(?:issue|problem|malfunction|failure|fault)[^\n.]*?(?=\n|$)/gi);
-    if (simpleIssueMatches) {
-      simpleIssueMatches.forEach((match, index) => {
-        possibleIssues.push({
-          issue: match.trim(),
-          severity: "Medium", 
-          description: "",
-          likelihood: Math.max(30, 80 - (index * 20))
-        });
-      });
-    }
-  }
-  
-  sections.possibleIssues = possibleIssues;
-  
-  // Extract troubleshooting steps
-  const troubleMatch = text.match(/(?:troubleshooting|steps|how to fix|resolution)[^\n]*:?([\s\S]*?)(?=\n\n|required|repair complexity|repair difficulty|additional notes|safety|$)/i);
-  if (troubleMatch && troubleMatch[1]) {
-    const steps = troubleMatch[1].split(/\n/)
-      .map(step => step.trim())
-      .filter(step => step.length > 0 && !step.match(/^troubleshooting|^steps|^here's how|^how to/i))
-      .map(step => {
-        // Remove leading numbers, bullets, etc.
-        return step.replace(/^[0-9]+[\.\)]\s*|\-\s*|\*\s*|•\s*/, '');
-      });
-    sections.troubleshooting = steps;
-  }
-  
-  // Extract required tools/items
-  const toolsMatch = text.match(/(?:required|necessary|needed|tools|parts|equipment)[^\n]*:?([\s\S]*?)(?=\n\n|repair complexity|repair difficulty|additional|safety|$)/i);
-  if (toolsMatch && toolsMatch[1]) {
-    const items = toolsMatch[1].split(/\n/)
-      .map(item => item.trim())
-      .filter(item => item.length > 0 && !item.match(/^required|^tools|^parts|^items|^materials/i))
-      .map(item => {
-        // Remove leading bullets, etc.
-        return item.replace(/^[0-9]+[\.\)]\s*|\-\s*|\*\s*|•\s*/, '');
-      });
-    sections.requiredItems = items;
-  }
-  
-  // Determine repair complexity
-  if (text.match(/complex|difficult|professional|hvac technician required/i)) {
-    sections.repairComplexity = "Complex";
-  } else if (text.match(/moderate|intermediate|some experience|technical knowledge/i)) {
-    sections.repairComplexity = "Moderate";
-  } else if (text.match(/easy|simple|basic|diy/i)) {
-    sections.repairComplexity = "Easy";
-  }
-  
-  // Extract additional notes
-  const notesMatch = text.match(/(?:additional notes|note|important|caution)[^\n]*:?([\s\S]*?)(?=\n\n|safety|conclusion|$)/i);
-  if (notesMatch && notesMatch[1]) {
-    sections.additionalNotes = notesMatch[1].trim();
-  }
-  
-  // Extract safety warnings
-  const safetyMatch = text.match(/(?:safety|warning|caution|danger)[^\n]*:?([\s\S]*?)(?=\n\n|conclusion|$)/i);
-  if (safetyMatch && safetyMatch[1]) {
-    sections.safetyWarnings = safetyMatch[1].trim();
-  }
-  
-  return sections;
-}
-
-// Function to validate and fix the diagnosis result structure
-function validateAndFixDiagnosisResult(result) {
-  // Create a template with default values
-  const template = {
-    primaryIssue: "Unknown issue",
-    possibleIssues: [],
-    troubleshooting: [],
-    requiredItems: [],
-    repairComplexity: "Unknown",
-    additionalNotes: ""
-  };
-  
-  // Merge the result with the template
-  const validatedResult = { ...template, ...result };
-  
-  // Ensure possibleIssues is an array with required properties
-  if (!Array.isArray(validatedResult.possibleIssues)) {
-    validatedResult.possibleIssues = [];
-  }
-  
-  // Fix each possible issue
-  validatedResult.possibleIssues = validatedResult.possibleIssues.map(issue => {
-    // Create an issue template
-    const issueTemplate = {
-      issue: "Unknown issue",
-      severity: "Medium",
-      description: "",
-      likelihood: 50
-    };
-    
-    // Return the merged issue
-    return { ...issueTemplate, ...issue };
-  });
-  
-  // Ensure troubleshooting is an array
-  if (!Array.isArray(validatedResult.troubleshooting)) {
-    validatedResult.troubleshooting = [];
-  }
-  
-  // Ensure requiredItems is an array
-  if (!Array.isArray(validatedResult.requiredItems)) {
-    validatedResult.requiredItems = [];
-  }
-  
-  // Validate repairComplexity
-  if (!["Easy", "Moderate", "Complex", "Unknown"].includes(validatedResult.repairComplexity)) {
-    validatedResult.repairComplexity = "Unknown";
-  }
-  
-  return validatedResult;
-}
-// Enhanced image analysis endpoint
+// ENHANCED image analysis endpoint
 app.post('/api/analyze-image', async (req, res) => {
   try {
     // Check if OpenAI is configured
@@ -1057,8 +741,8 @@ function formatForFrontend(enhancedInfo) {
   return formattedInfo;
 }
 
-// Helper function to construct the diagnostic prompt
-function constructDiagnosticPrompt(systemType, systemInfo, symptoms) {
+// Improved prompt constructor that forces JSON structure
+function constructBetterDiagnosticPrompt(systemType, systemInfo, symptoms) {
   let prompt = `## HVAC Diagnostic Request\n\n`;
   
   // System classification
@@ -1086,25 +770,10 @@ function constructDiagnosticPrompt(systemType, systemInfo, symptoms) {
   
   // Clear diagnostic instructions with formatting guidance
   prompt += `## Diagnostic Instructions
-Please provide a detailed HVAC diagnosis with the following sections:
 
-1. **Primary Analysis:** Identify the most likely cause based on symptoms and system details.
+Based on the system information and symptoms provided, please provide a detailed HVAC diagnosis.
 
-2. **Possible Issues:** List all potential issues in order of likelihood. For each issue, include:
-   - Issue name
-   - Severity (Low/Medium/High)
-   - Brief description of the problem
-   - Likelihood percentage (how probable this cause is)
-
-3. **Troubleshooting Steps:** Provide specific, detailed steps for diagnosing and potentially fixing the issue. Include safety precautions.
-
-4. **Required Tools and Parts:** List specific tools and replacement parts that may be needed.
-
-5. **Repair Complexity:** Categorize as Easy (DIY), Moderate (Some technical knowledge required), or Complex (Professional recommended).
-
-6. **Additional Notes:** Provide any relevant system-specific information, manufacturer-known issues, or seasonal considerations.
-
-Format your response in valid JSON only. Respond with clean, parseable JSON using this structure:
+YOU MUST REPLY WITH A VALID JSON OBJECT in the following exact structure:
 {
   "primaryIssue": "Brief statement of most likely cause",
   "possibleIssues": [
@@ -1113,6 +782,12 @@ Format your response in valid JSON only. Respond with clean, parseable JSON usin
       "severity": "Low/Medium/High",
       "description": "Brief description",
       "likelihood": 80
+    },
+    {
+      "issue": "Secondary issue name",
+      "severity": "Low/Medium/High",
+      "description": "Brief description",
+      "likelihood": 60
     }
   ],
   "troubleshooting": [
@@ -1126,26 +801,69 @@ Format your response in valid JSON only. Respond with clean, parseable JSON usin
   "repairComplexity": "Easy/Moderate/Complex",
   "additionalNotes": "Important information",
   "safetyWarnings": "Any critical safety considerations"
-}`;
+}
+
+Your response MUST be a VALID JSON object with AT LEAST the following fields:
+- primaryIssue (string)
+- possibleIssues (array of objects)
+- troubleshooting (array of strings)
+- requiredItems (array of strings)
+- repairComplexity (string)
+- additionalNotes (string)
+
+Each possibleIssue MUST include:
+- issue (string)
+- severity (string - must be "Low", "Medium", or "High")
+- description (string)
+- likelihood (number between 1-100)
+
+For possibleIssues, include at least 2-3 potential causes. For troubleshooting, include at least 3-5 specific steps.`;
 
   return prompt;
 }
 
-// Process the OpenAI response
-function processDiagnosisResult(content) {
+// New improved response processor
+function processDiagnosisResultImproved(content) {
   try {
-    // Try to parse JSON response
+    // First try standard JSON parsing
     return JSON.parse(content);
   } catch (error) {
-    console.error("Error parsing diagnosis result:", error);
+    console.error("JSON parsing error in diagnosis result:", error);
     
-    // Extract what we can from a text response
-    return formatTextResponse(content);
+    // Try to extract JSON from a markdown code block
+    const jsonBlockMatch = content.match(/```(?:json)?\s*({[\s\S]*?})\s*```/);
+    if (jsonBlockMatch && jsonBlockMatch[1]) {
+      try {
+        return JSON.parse(jsonBlockMatch[1]);
+      } catch (blockError) {
+        console.error("Failed to parse JSON from code block:", blockError);
+      }
+    }
+    
+    // Try to extract any JSON-like object
+    const jsonObjectMatch = content.match(/{[\s\S]*?}/);
+    if (jsonObjectMatch) {
+      try {
+        // Clean up the matched text by removing common issues
+        const cleanedJson = jsonObjectMatch[0]
+          .replace(/(\w+):/g, '"$1":') // Add quotes to keys
+          .replace(/:\s*'([^']*)'/g, ': "$1"') // Replace single quotes with double quotes
+          .replace(/,\s*}/g, '}') // Remove trailing commas
+          .replace(/,\s*]/g, ']'); // Remove trailing commas in arrays
+          
+        return JSON.parse(cleanedJson);
+      } catch (objectError) {
+        console.error("Failed to parse extracted JSON-like object:", objectError);
+      }
+    }
+    
+    // As a last resort, use text-based extraction
+    return formatTextResponseBetter(content);
   }
 }
 
-// Format text response if not in JSON format
-function formatTextResponse(text) {
+// Improved text response formatter
+function formatTextResponseBetter(text) {
   // Default structure with empty fields
   const sections = {
     primaryIssue: "Could not determine primary issue",
@@ -1153,48 +871,191 @@ function formatTextResponse(text) {
     troubleshooting: [],
     requiredItems: [],
     repairComplexity: "Unknown",
-    additionalNotes: "The AI response could not be properly formatted. Please try again."
+    additionalNotes: "The diagnosis could not be properly formatted. Please try again with more detailed symptoms."
   };
   
-  // Simple parsing logic
-  if (text.includes("Possible Issues:")) {
-    const issuesSection = text.split("Possible Issues:")[1].split("\n\n")[0];
-    sections.possibleIssues = issuesSection.split("\n").map(line => {
-      const trimmedLine = line.trim();
-      if (!trimmedLine) return null;
+  // Check for primary issue
+  const primaryMatch = text.match(/(?:primary|main|likely)\s+(?:issue|problem|cause):?\s*([^\n.]+)/i);
+  if (primaryMatch && primaryMatch[1]) {
+    sections.primaryIssue = primaryMatch[1].trim();
+  }
+  
+  // Extract possible issues
+  let possibleIssues = [];
+  
+  // Look for structured issue lists with severity indicators
+  const issueBlockMatch = text.match(/possible issues:[\s\S]*?(?=\n\n|\ntroubl)/i);
+  if (issueBlockMatch) {
+    const issueBlock = issueBlockMatch[0];
+    const issueLines = issueBlock.split("\n").slice(1); // Skip the header
+    
+    issueLines.forEach(line => {
+      const lineText = line.trim();
+      if (!lineText) return;
       
-      return { 
-        issue: trimmedLine, 
-        severity: "Unknown", 
-        description: "",
-        likelihood: 50
-      };
-    }).filter(Boolean); // Remove null entries
+      // Try to extract severity and description
+      const issueSeverityMatch = lineText.match(/^(?:[0-9]\.|\*|-|•)?\s*([^:]+)(?::|\s*-)\s*(?:\(([^\)]+)\))?\s*(.+)?$/);
+      if (issueSeverityMatch) {
+        const issueName = issueSeverityMatch[1]?.trim() || "Unknown issue";
+        let severity = "Medium"; // Default
+        let description = issueSeverityMatch[3]?.trim() || "";
+        
+        // Try to determine severity
+        if (issueSeverityMatch[2]) {
+          const sevText = issueSeverityMatch[2].toLowerCase();
+          if (sevText.includes("high") || sevText.includes("critical") || sevText.includes("severe")) {
+            severity = "High";
+          } else if (sevText.includes("low") || sevText.includes("minor")) {
+            severity = "Low";
+          }
+        } else if (description.toLowerCase().includes("serious") || description.toLowerCase().includes("immediate")) {
+          severity = "High";
+        } else if (description.toLowerCase().includes("minor") || description.toLowerCase().includes("simple")) {
+          severity = "Low";
+        }
+        
+        // Calculate a rough likelihood
+        let likelihood = 80;
+        if (possibleIssues.length > 0) {
+          likelihood = Math.max(30, 80 - (possibleIssues.length * 15));
+        }
+        
+        possibleIssues.push({
+          issue: issueName,
+          severity: severity,
+          description: description || `${issueName} may be causing the problem`,
+          likelihood: likelihood
+        });
+      } else if (lineText.length > 5 && !lineText.startsWith("=")) {
+        // Simple fallback for unstructured lines
+        possibleIssues.push({
+          issue: lineText,
+          severity: "Medium",
+          description: "",
+          likelihood: 50
+        });
+      }
+    });
   }
   
-  if (text.includes("Troubleshooting Steps:")) {
-    const stepsSection = text.split("Troubleshooting Steps:")[1].split("\n\n")[0];
-    sections.troubleshooting = stepsSection.split("\n").map(line => line.trim()).filter(Boolean);
+  // If we couldn't find structured issues, try simpler patterns
+  if (possibleIssues.length === 0) {
+    // Look for lines with "issue", "problem", "malfunction" etc.
+    const simpleIssueMatches = text.match(/(?:issue|problem|malfunction|failure|fault)[^\n.]*?(?=\n|$)/gi);
+    if (simpleIssueMatches) {
+      simpleIssueMatches.forEach((match, index) => {
+        possibleIssues.push({
+          issue: match.trim(),
+          severity: "Medium", 
+          description: "",
+          likelihood: Math.max(30, 80 - (index * 20))
+        });
+      });
+    }
   }
   
-  if (text.includes("Required Tools:") || text.includes("Required Items:")) {
-    const toolsMarker = text.includes("Required Tools:") ? "Required Tools:" : "Required Items:";
-    const toolsSection = text.split(toolsMarker)[1].split("\n\n")[0];
-    sections.requiredItems = toolsSection.split("\n").map(line => line.trim()).filter(Boolean);
+  sections.possibleIssues = possibleIssues;
+  
+  // Extract troubleshooting steps
+  const troubleMatch = text.match(/(?:troubleshooting|steps|how to fix|resolution)[^\n]*:?([\s\S]*?)(?=\n\n|required|repair complexity|repair difficulty|additional notes|safety|$)/i);
+  if (troubleMatch && troubleMatch[1]) {
+    const steps = troubleMatch[1].split(/\n/)
+      .map(step => step.trim())
+      .filter(step => step.length > 0 && !step.match(/^troubleshooting|^steps|^here's how|^how to/i))
+      .map(step => {
+        // Remove leading numbers, bullets, etc.
+        return step.replace(/^[0-9]+[\.\)]\s*|\-\s*|\*\s*|•\s*/, '');
+      });
+    sections.troubleshooting = steps;
   }
   
-  if (text.includes("Repair Complexity:")) {
-    const complexityLine = text.split("Repair Complexity:")[1].split("\n")[0];
-    if (complexityLine.toLowerCase().includes("easy")) sections.repairComplexity = "Easy";
-    else if (complexityLine.toLowerCase().includes("moderate")) sections.repairComplexity = "Moderate";
-    else if (complexityLine.toLowerCase().includes("complex")) sections.repairComplexity = "Complex";
+  // Extract required tools/items
+  const toolsMatch = text.match(/(?:required|necessary|needed|tools|parts|equipment)[^\n]*:?([\s\S]*?)(?=\n\n|repair complexity|repair difficulty|additional|safety|$)/i);
+  if (toolsMatch && toolsMatch[1]) {
+    const items = toolsMatch[1].split(/\n/)
+      .map(item => item.trim())
+      .filter(item => item.length > 0 && !item.match(/^required|^tools|^parts|^items|^materials/i))
+      .map(item => {
+        // Remove leading bullets, etc.
+        return item.replace(/^[0-9]+[\.\)]\s*|\-\s*|\*\s*|•\s*/, '');
+      });
+    sections.requiredItems = items;
   }
   
-  if (text.includes("Additional Notes:")) {
-    sections.additionalNotes = text.split("Additional Notes:")[1].split("\n\n")[0].trim();
+  // Determine repair complexity
+  if (text.match(/complex|difficult|professional|hvac technician required/i)) {
+    sections.repairComplexity = "Complex";
+  } else if (text.match(/moderate|intermediate|some experience|technical knowledge/i)) {
+    sections.repairComplexity = "Moderate";
+  } else if (text.match(/easy|simple|basic|diy/i)) {
+    sections.repairComplexity = "Easy";
+  }
+  
+  // Extract additional notes
+  const notesMatch = text.match(/(?:additional notes|note|important|caution)[^\n]*:?([\s\S]*?)(?=\n\n|safety|conclusion|$)/i);
+  if (notesMatch && notesMatch[1]) {
+    sections.additionalNotes = notesMatch[1].trim();
+  }
+  
+  // Extract safety warnings
+  const safetyMatch = text.match(/(?:safety|warning|caution|danger)[^\n]*:?([\s\S]*?)(?=\n\n|conclusion|$)/i);
+  if (safetyMatch && safetyMatch[1]) {
+    sections.safetyWarnings = safetyMatch[1].trim();
   }
   
   return sections;
+}
+
+// Function to validate and fix the diagnosis result structure
+function validateAndFixDiagnosisResult(result) {
+  // Create a template with default values
+  const template = {
+    primaryIssue: "Unknown issue",
+    possibleIssues: [],
+    troubleshooting: [],
+    requiredItems: [],
+    repairComplexity: "Unknown",
+    additionalNotes: ""
+  };
+  
+  // Merge the result with the template
+  const validatedResult = { ...template, ...result };
+  
+  // Ensure possibleIssues is an array with required properties
+  if (!Array.isArray(validatedResult.possibleIssues)) {
+    validatedResult.possibleIssues = [];
+  }
+  
+  // Fix each possible issue
+  validatedResult.possibleIssues = validatedResult.possibleIssues.map(issue => {
+    // Create an issue template
+    const issueTemplate = {
+      issue: "Unknown issue",
+      severity: "Medium",
+      description: "",
+      likelihood: 50
+    };
+    
+    // Return the merged issue
+    return { ...issueTemplate, ...issue };
+  });
+  
+  // Ensure troubleshooting is an array
+  if (!Array.isArray(validatedResult.troubleshooting)) {
+    validatedResult.troubleshooting = [];
+  }
+  
+  // Ensure requiredItems is an array
+  if (!Array.isArray(validatedResult.requiredItems)) {
+    validatedResult.requiredItems = [];
+  }
+  
+  // Validate repairComplexity
+  if (!["Easy", "Moderate", "Complex", "Unknown"].includes(validatedResult.repairComplexity)) {
+    validatedResult.repairComplexity = "Unknown";
+  }
+  
+  return validatedResult;
 }
 
 // Rule-based cost estimation function
