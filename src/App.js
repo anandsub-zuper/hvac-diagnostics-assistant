@@ -1,6 +1,6 @@
 // src/App.js
-import React from 'react';
-import { Routes, Route } from 'react-router-dom'; // Removed BrowserRouter import
+import React, { useState } from 'react';
+import { Routes, Route } from 'react-router-dom';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import DiagnosticTool from './pages/DiagnosticTool';
@@ -11,6 +11,14 @@ import './App.css';
 
 function App() {
   const [isOnline, setIsOnline] = React.useState(navigator.onLine);
+  
+  // Add app-level state for data persistence
+  const [diagnosticData, setDiagnosticData] = useState({
+    step: 1,
+    systemType: '',
+    systemInfo: {},
+    symptoms: ''
+  });
 
   React.useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -35,7 +43,16 @@ function App() {
           </div>
         )}
         <Routes>
-          <Route path="/" element={<DiagnosticTool isOnline={isOnline} />} />
+          <Route 
+            path="/" 
+            element={
+              <DiagnosticTool 
+                isOnline={isOnline} 
+                diagnosticData={diagnosticData}
+                setDiagnosticData={setDiagnosticData}
+              />
+            } 
+          />
           <Route path="/saved" element={<SavedDiagnostics />} />
           <Route path="/library" element={<ReferenceLibrary />} />
           <Route path="/offline" element={<OfflinePage />} />
