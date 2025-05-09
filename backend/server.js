@@ -1,30 +1,20 @@
-// server.js - With improved error handling
+// server.js - Complete file with enhanced image analysis
 const express = require('express');
 const cors = require('cors');
 const { OpenAI } = require('openai');
 require('dotenv').config();
 
-// Create express app
 const app = express();
+// Heroku will assign a port via the PORT environment variable
+const PORT = process.env.PORT || 3000; // Fallback to 3000 for local development
 
-// Get port from environment
-const PORT = process.env.PORT || 3000;
-
-// Middleware
-app.use(cors({
-  origin: ['https://hvac-ai-assistant.netlify.app', 'http://localhost:3000'],
-  methods: 'GET,HEAD,PUT,PATCH,POST,OPTIONS',
-  credentials: true
-}));
-app.use(express.json({ limit: '10mb' })); // Increased limit for image data
-
-// Configure OpenAI with better error handling
+// Configure OpenAI client
 let openai;
 try {
   // Check if API key exists
   if (!process.env.OPENAI_API_KEY) {
     console.error('WARNING: OPENAI_API_KEY environment variable is not set');
-    // We'll handle this in the route handlers instead of crashing
+    // We'll handle this in the route handlers
   } else {
     openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
@@ -34,6 +24,14 @@ try {
   console.error('Error initializing OpenAI:', error);
   // Continue app startup even if OpenAI init fails
 }
+
+// Middleware
+app.use(cors({
+  origin: ['https://hvac-ai-assistant.netlify.app', 'http://localhost:3000'],
+  methods: 'GET,HEAD,PUT,PATCH,POST,OPTIONS',
+  credentials: true
+}));
+app.use(express.json({ limit: '10mb' })); // Increased limit for image data
 
 // Health check endpoint
 app.get('/', (req, res) => {
@@ -47,7 +45,7 @@ app.get('/', (req, res) => {
   });
 });
 
-// Diagnostic endpoint with error handling
+// Diagnostic endpoint
 app.post('/api/diagnose', async (req, res) => {
   try {
     // Check if OpenAI is configured
@@ -64,12 +62,10 @@ app.post('/api/diagnose', async (req, res) => {
       return res.status(400).json({ error: 'Symptoms are required' });
     }
 
-    console.log("Processing diagnosis request for:", systemType);
-
     // Construct a detailed prompt for the OpenAI model
     const prompt = constructDiagnosticPrompt(systemType, systemInfo, symptoms);
     
-    // Call OpenAI API with error handling
+    // Call OpenAI API
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo", // Using a faster model to reduce latency
       messages: [
@@ -86,26 +82,20 @@ app.post('/api/diagnose', async (req, res) => {
     // Process the response
     const diagnosisResult = processDiagnosisResult(completion.choices[0].message.content);
     
-    // Add basic cost estimates (simplified without additional API call)
+    // Add cost estimates to the result
     diagnosisResult.costEstimates = generateRuleBasedCostEstimates(diagnosisResult);
     
-    console.log("Diagnosis completed successfully");
     return res.json(diagnosisResult);
-    
   } catch (error) {
     console.error('Diagnostic error:', error);
-    
-    // Send a more graceful error response
     return res.status(500).json({ 
       error: 'An error occurred while processing the diagnosis',
-      message: 'Please try again or use offline mode.',
-      details: error.message,
-      fallbackMode: true
+      details: error.message 
     });
   }
 });
 
-// Image analysis endpoint with error handling
+// Enhanced image analysis endpoint
 app.post('/api/analyze-image', async (req, res) => {
   try {
     // Check if OpenAI is configured
@@ -131,67 +121,18 @@ app.post('/api/analyze-image', async (req, res) => {
     
     console.log("Processing image analysis request");
     
-    // Call OpenAI's Vision API for image analysis
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are an expert HVAC technician specializing in identifying HVAC equipment from images. Extract as much information as possible about the system including:
-1. System type (Central AC, Heat Pump, Furnace, Boiler, Mini-Split, etc.)
-2. Brand/manufacturer
-3. Model information (numbers and letters visible on data plate)
-4. Serial number (if clearly visible)
-5. Manufacturing date (if visible or can be derived from serial number)
-6. System capacity/tonnage (usually listed as BTU or tons)
-7. SEER/AFUE/HSPF rating (efficiency ratings)
-8. Visible condition assessment
-9. Approximate age based on appearance and model
-10. Any visible issues or damage
-11. Any warnings or error codes displayed`
-        },
-        {
-          role: "user",
-          content: [
-            { 
-              type: "text", 
-              text: "Identify all information about this HVAC system from the image. Focus on the data plate/label if visible. Return ONLY a JSON object with the following structure: {\"systemType\": \"...\", \"brand\": \"...\", \"model\": \"...\", \"serialNumber\": \"...\", \"manufacturingDate\": \"...\", \"capacity\": \"...\", \"efficiencyRating\": \"...\", \"estimatedAge\": \"...\", \"visibleCondition\": \"...\", \"visibleIssues\": \"...\", \"errorCodes\": \"...\"}. For any fields you cannot determine, use an empty string." 
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:image/jpeg;base64,${image}`
-              }
-            }
-          ]
-        }
-      ],
-      max_tokens: 800
-    });
-    
-    const responseText = completion.choices[0].message.content;
-    
+    // Use enhanced image analysis
     try {
-      // Extract JSON from response text with better error handling
-      let systemInfo = extractSystemInfoFromResponse(responseText);
+      const result = await enhancedImageAnalysis(image);
+      return res.json(result);
+    } catch (analysisError) {
+      console.error('Enhanced image analysis error:', analysisError);
       
-      console.log("Image analysis completed successfully");
-      return res.json({ 
-        systemInfo,
-        rawAnalysis: responseText
-      });
-    } catch (parseError) {
-      console.error("Error parsing image analysis response:", parseError);
-      
-      // Return a default empty response rather than crashing
-      return res.status(422).json({
-        error: "Could not parse system information from image",
-        systemInfo: {
-          brand: "",
-          model: "",
-          systemType: "",
-          age: ""
-        }
+      // Fall back to basic image analysis if enhanced fails
+      const basicResult = await basicImageAnalysis(image);
+      return res.json({
+        systemInfo: basicResult,
+        rawAnalysis: "Enhanced analysis failed, using basic analysis instead."
       });
     }
   } catch (error) {
@@ -211,7 +152,127 @@ app.post('/api/analyze-image', async (req, res) => {
   }
 });
 
-// Helper function to extract system info from JSON response
+// Enhanced image analysis function
+async function enhancedImageAnalysis(imageBase64) {
+  try {
+    // First, use OpenAI to analyze the image
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert HVAC technician specializing in identifying HVAC equipment from images.
+Extract as much information as possible about the system including:
+1. System type (Central AC, Heat Pump, Furnace, Boiler, Mini-Split, etc.)
+2. Brand/manufacturer (be precise and only name brands that are clearly visible)
+3. Model information (exact numbers and letters visible on data plate)
+4. Serial number (exact characters visible on data plate)
+5. Manufacturing date (exactly as shown, or derived from serial number if possible)
+6. System capacity/tonnage (BTU or tons, look for numbers like 24,000 BTU or 2 tons)
+7. SEER/AFUE/HSPF rating (efficiency ratings, exact numbers as shown)
+8. Refrigerant type (e.g., R-410A, R-22, etc.)
+
+Focus on being extremely precise with model numbers, serial numbers, and other technical information.
+If you cannot read certain digits or characters clearly, use "?" as a placeholder.
+If you cannot determine certain information at all, simply respond with "none visible" for that field.
+
+For serial numbers, they typically follow specific patterns by manufacturer:
+- Carrier/Bryant: Usually 10-11 digits, where digits 4-5 indicate year of manufacture
+- Trane/American Standard: Usually starts with a letter followed by digits where digits 1-2 indicate year
+- Lennox: Usually 10-14 digits where digits 3-4 indicate year of manufacture
+- Goodman: Usually numeric only, where the first or second digit often indicates decade of manufacture
+- Rheem/Ruud: Usually starts with serial number or S/N, followed by alphanumeric code
+
+For system age, examine serial number patterns or look for a manufacturing date which is often 
+encoded in the serial number or shown separately on the data plate.`
+        },
+        {
+          role: "user",
+          content: [
+            { 
+              type: "text", 
+              text: "Identify all information about this HVAC system from the image. Focus specifically on the data plate/label and be precise with model and serial numbers. Return your findings in a JSON object with the following structure: {\"systemType\": \"...\", \"brand\": \"...\", \"model\": \"...\", \"serialNumber\": \"...\", \"manufacturingDate\": \"...\", \"capacity\": \"...\", \"efficiencyRating\": \"...\", \"refrigerantType\": \"...\"}" 
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:image/jpeg;base64,${imageBase64}`
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 1000
+    });
+    
+    // Get the raw text response
+    const responseText = completion.choices[0].message.content;
+    console.log("Raw image analysis:", responseText);
+    
+    // Extract basic system info from the response
+    let basicSystemInfo = extractSystemInfoFromResponse(responseText);
+    
+    // Now enhance the data with more processing
+    const enhancedSystemInfo = enhanceSystemInfo(basicSystemInfo, responseText);
+    
+    return {
+      systemInfo: enhancedSystemInfo,
+      rawAnalysis: responseText
+    };
+  } catch (error) {
+    console.error('Enhanced image analysis error:', error);
+    throw error;
+  }
+}
+
+// Basic image analysis function as fallback
+async function basicImageAnalysis(imageBase64) {
+  // Call OpenAI's Vision API for basic image analysis
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [
+      {
+        role: "system",
+        content: `You are an expert HVAC technician. Identify the HVAC system in this image.`
+      },
+      {
+        role: "user",
+        content: [
+          { 
+            type: "text", 
+            text: "Identify the HVAC system in this image. Return ONLY a JSON object with the following structure: {\"systemType\": \"...\", \"brand\": \"...\", \"model\": \"...\", \"serialNumber\": \"...\", \"manufacturingDate\": \"...\", \"capacity\": \"...\", \"efficiencyRating\": \"...\", \"age\": \"...\"}. For any fields you cannot determine, use an empty string." 
+          },
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:image/jpeg;base64,${imageBase64}`
+            }
+          }
+        ]
+      }
+    ],
+    max_tokens: 800
+  });
+  
+  const responseText = completion.choices[0].message.content;
+  
+  try {
+    // Extract JSON from response text with better error handling
+    return extractSystemInfoFromResponse(responseText);
+  } catch (parseError) {
+    console.error("Error parsing image analysis response:", parseError);
+    
+    // Return a default empty response rather than crashing
+    return {
+      brand: "",
+      model: "",
+      systemType: "",
+      age: ""
+    };
+  }
+}
+
+// Extract system info from OpenAI response
 function extractSystemInfoFromResponse(responseText) {
   try {
     // First, clean up the response text to ensure it's valid JSON
@@ -226,24 +287,391 @@ function extractSystemInfoFromResponse(responseText) {
       return JSON.parse(jsonMatch[0]);
     }
     
-    // If we can't find a JSON object, create a default one
-    return {
-      brand: "",
-      model: "",
-      systemType: "",
-      age: ""
-    };
+    // If we can't find a JSON object, extract key information using regex
+    return extractInfoWithRegex(responseText);
   } catch (error) {
     console.error("JSON parsing error:", error);
-    
-    // Return default empty object on error
-    return {
-      brand: "",
-      model: "",
-      systemType: "",
-      age: ""
-    };
+    // Fall back to regex-based extraction
+    return extractInfoWithRegex(responseText);
   }
+}
+
+// Extract information using regex patterns when JSON parsing fails
+function extractInfoWithRegex(text) {
+  const systemInfo = {
+    systemType: "",
+    brand: "",
+    model: "",
+    serialNumber: "",
+    manufacturingDate: "",
+    capacity: "",
+    efficiencyRating: "",
+    estimatedAge: "",
+    refrigerantType: ""
+  };
+  
+  // Extract brand
+  const brandMatch = text.match(/brand:?\s*([A-Za-z0-9\s-]+)/i);
+  if (brandMatch && brandMatch[1]) {
+    systemInfo.brand = brandMatch[1].trim();
+  }
+  
+  // Extract model
+  const modelMatch = text.match(/model:?\s*([A-Za-z0-9\s-]+)/i);
+  if (modelMatch && modelMatch[1]) {
+    systemInfo.model = modelMatch[1].trim();
+  }
+  
+  // Extract system type
+  const typeMatch = text.match(/system\s*type:?\s*([A-Za-z0-9\s-]+)/i);
+  if (typeMatch && typeMatch[1]) {
+    systemInfo.systemType = typeMatch[1].trim();
+  }
+  
+  // Extract serial number
+  const serialMatch = text.match(/serial\s*number:?\s*([A-Za-z0-9\s-]+)/i);
+  if (serialMatch && serialMatch[1]) {
+    systemInfo.serialNumber = serialMatch[1].trim();
+  }
+  
+  // Extract manufacturing date
+  const dateMatch = text.match(/manufacturing\s*date:?\s*([A-Za-z0-9\s-\/,]+)/i);
+  if (dateMatch && dateMatch[1]) {
+    systemInfo.manufacturingDate = dateMatch[1].trim();
+  }
+  
+  // Extract capacity
+  const capacityMatch = text.match(/capacity:?\s*([0-9.,]+\s*(?:tons?|BTU))/i);
+  if (capacityMatch && capacityMatch[1]) {
+    systemInfo.capacity = capacityMatch[1].trim();
+  }
+  
+  // Extract efficiency rating
+  const efficiencyMatch = text.match(/efficiency\s*rating:?\s*([A-Za-z0-9\s-%.]+)/i);
+  if (efficiencyMatch && efficiencyMatch[1]) {
+    systemInfo.efficiencyRating = efficiencyMatch[1].trim();
+  }
+  
+  return systemInfo;
+}
+
+// Enhance system info with additional processing
+function enhanceSystemInfo(basicInfo, rawText) {
+  // Create a copy of the basic info to enhance
+  const enhancedInfo = { ...basicInfo };
+  
+  // 1. Normalize system type
+  enhancedInfo.systemType = normalizeSystemType(enhancedInfo.systemType);
+  
+  // 2. Extract or enhance serial number
+  if (!enhancedInfo.serialNumber || enhancedInfo.serialNumber.length < 5) {
+    enhancedInfo.serialNumber = extractSerialNumber(rawText, enhancedInfo.brand);
+  }
+  
+  // 3. Determine system age if not provided
+  if (!enhancedInfo.estimatedAge) {
+    enhancedInfo.estimatedAge = determineSystemAge(
+      enhancedInfo.serialNumber, 
+      enhancedInfo.manufacturingDate,
+      enhancedInfo.brand
+    );
+  }
+  
+  // 4. Extract tonnage/capacity if not provided or standardize format
+  if (!enhancedInfo.capacity) {
+    enhancedInfo.capacity = detectSystemSize(enhancedInfo.model, rawText);
+  } else {
+    // Standardize tonnage format
+    enhancedInfo.capacity = standardizeTonnage(enhancedInfo.capacity);
+  }
+  
+  // 5. Normalize efficiency rating format
+  if (enhancedInfo.efficiencyRating) {
+    enhancedInfo.efficiencyRating = normalizeEfficiencyRating(enhancedInfo.efficiencyRating);
+  }
+  
+  // 6. Format for frontend expectations
+  return formatForFrontend(enhancedInfo);
+}
+
+// Standardize system type to match frontend expectations
+function normalizeSystemType(systemType) {
+  if (!systemType) return "";
+  
+  const typeMap = {
+    "central air conditioner": "central-ac",
+    "central air conditioning": "central-ac",
+    "central ac": "central-ac",
+    "split system": "central-ac",
+    "heat pump": "heat-pump",
+    "furnace": "furnace",
+    "boiler": "boiler",
+    "mini split": "mini-split",
+    "minisplit": "mini-split",
+    "ductless": "mini-split",
+    "package unit": "package-unit",
+    "packaged unit": "package-unit",
+    "rooftop unit": "package-unit",
+    "rtu": "package-unit"
+  };
+  
+  // Normalize the system type (lowercase and check for matches)
+  const normalizedType = systemType.toLowerCase();
+  for (const [key, value] of Object.entries(typeMap)) {
+    if (normalizedType.includes(key)) {
+      return value;
+    }
+  }
+  
+  return systemType; // Return original if no match
+}
+
+// Extract serial number with brand-specific patterns
+function extractSerialNumber(text, brand) {
+  // First check for explicit serial number mention
+  const explicitMatch = text.match(/serial\s*(?:number|no|#)?\s*(?:is|:)?\s*[\"']?([A-Z0-9]{5,20})[\"']?/i);
+  if (explicitMatch && explicitMatch[1]) {
+    return explicitMatch[1];
+  }
+  
+  // Brand-specific serial number patterns
+  const brandLower = (brand || "").toLowerCase();
+  
+  if (brandLower.includes("carrier") || brandLower.includes("bryant")) {
+    const carrierMatch = text.match(/\b([0-9]{8,11})\b/i);
+    if (carrierMatch) return carrierMatch[1];
+  }
+  
+  if (brandLower.includes("trane") || brandLower.includes("american standard")) {
+    const traneMatch = text.match(/\b([A-Z][0-9]{8,12})\b/i);
+    if (traneMatch) return traneMatch[1];
+  }
+  
+  if (brandLower.includes("lennox")) {
+    const lennoxMatch = text.match(/\b([0-9]{10,14})\b/i);
+    if (lennoxMatch) return lennoxMatch[1];
+  }
+  
+  if (brandLower.includes("goodman") || brandLower.includes("amana")) {
+    const goodmanMatch = text.match(/\b([0-9]{9,14})\b/i);
+    if (goodmanMatch) return goodmanMatch[1];
+  }
+  
+  if (brandLower.includes("rheem") || brandLower.includes("ruud")) {
+    const rheemMatch = text.match(/\b([A-Z][0-9]{8,13})\b/i);
+    if (rheemMatch) return rheemMatch[1];
+  }
+  
+  // Generic pattern for other brands
+  const genericMatch = text.match(/\b(?:serial|s\/n)(?:\s|#|:|\.|number)+\s*([A-Z0-9]{5,20})\b/i);
+  if (genericMatch && genericMatch[1]) {
+    return genericMatch[1];
+  }
+  
+  return "";
+}
+
+// Determine system age from serial number/manufacturing date
+function determineSystemAge(serialNumber, manufacturingDate, brand) {
+  // First try to extract year from manufacturing date
+  let manufacturingYear = null;
+  
+  if (manufacturingDate) {
+    // Try to extract a 4-digit year
+    const yearMatch = manufacturingDate.match(/(19|20)[0-9]{2}/);
+    if (yearMatch) {
+      manufacturingYear = parseInt(yearMatch[0]);
+    }
+    // Try to extract month/year format
+    else {
+      const monthYearMatch = manufacturingDate.match(/([0-9]{1,2})[\/-]([0-9]{2,4})/);
+      if (monthYearMatch && monthYearMatch[2]) {
+        let year = parseInt(monthYearMatch[2]);
+        if (year < 100) {
+          // Add century
+          year += year > 50 ? 1900 : 2000;
+        }
+        manufacturingYear = year;
+      }
+    }
+  }
+  
+  // If no manufacturing year found, try to extract from serial number
+  if (!manufacturingYear && serialNumber) {
+    const brandLower = (brand || "").toLowerCase();
+    
+    // Brand-specific serial number age extraction
+    if (brandLower.includes("carrier") || brandLower.includes("bryant")) {
+      // Carrier/Bryant: 4th and 5th digits often represent year
+      if (serialNumber.length >= 5) {
+        const yearDigits = serialNumber.substring(3, 5);
+        if (/^[0-9]{2}$/.test(yearDigits)) {
+          let year = parseInt(yearDigits);
+          // Determine century (19xx or 20xx)
+          year += year > 50 ? 1900 : 2000;
+          manufacturingYear = year;
+        }
+      }
+    }
+    else if (brandLower.includes("trane") || brandLower.includes("american standard")) {
+      // Trane: First digit after letter is decade, second is year in decade
+      if (serialNumber.length >= 3 && /^[A-Z][0-9]{2}/.test(serialNumber)) {
+        const decadeDigit = parseInt(serialNumber.charAt(1));
+        const yearDigit = parseInt(serialNumber.charAt(2));
+        const decade = decadeDigit < 8 ? 2000 + (decadeDigit * 10) : 1900 + (decadeDigit * 10);
+        manufacturingYear = decade + yearDigit;
+      }
+    }
+    else if (brandLower.includes("lennox")) {
+      // Lennox: Digits 3-4 often represent year
+      if (serialNumber.length >= 4) {
+        const yearDigits = serialNumber.substring(2, 4);
+        if (/^[0-9]{2}$/.test(yearDigits)) {
+          let year = parseInt(yearDigits);
+          // Determine century (19xx or 20xx)
+          year += year > 50 ? 1900 : 2000;
+          manufacturingYear = year;
+        }
+      }
+    }
+    // Add more brand-specific logic as needed
+  }
+  
+  // Convert manufacturing year to age range
+  if (manufacturingYear) {
+    const currentYear = new Date().getFullYear();
+    const age = currentYear - manufacturingYear;
+    
+    // Return age in standardized format
+    if (age <= 5) return "0-5";
+    if (age <= 10) return "6-10";
+    if (age <= 15) return "11-15";
+    if (age <= 20) return "16-20";
+    return "20+";
+  }
+  
+  return "";
+}
+
+// Detect system size/tonnage
+function detectSystemSize(modelNumber, rawText) {
+  // First check for explicit tonnage mentions
+  const tonnageMatch = rawText.match(/\b([1-6](?:\.[05])?)\s*tons?\b/i);
+  if (tonnageMatch && tonnageMatch[1]) {
+    return tonnageMatch[1];
+  }
+  
+  // Check for BTU values and convert to tonnage
+  const btuMatch = rawText.match(/\b([1-9][0-9],?000)\s*BTU\b/i);
+  if (btuMatch && btuMatch[1]) {
+    const btu = parseInt(btuMatch[1].replace(',', ''));
+    const tonnage = Math.round((btu / 12000) * 10) / 10; // Convert BTU to tons
+    return tonnage.toString();
+  }
+  
+  // Check for model number patterns that indicate tonnage
+  if (modelNumber) {
+    // Common patterns: 024 = 2 tons, 036 = 3 tons, 048 = 4 tons, 060 = 5 tons
+    const sizeCodeMatch = modelNumber.match(/\b(018|024|030|036|042|048|060)\b/);
+    if (sizeCodeMatch && sizeCodeMatch[1]) {
+      const sizeCode = sizeCodeMatch[1];
+      const tonnageMap = {
+        "018": "1.5",
+        "024": "2",
+        "030": "2.5",
+        "036": "3",
+        "042": "3.5",
+        "048": "4",
+        "060": "5"
+      };
+      if (tonnageMap[sizeCode]) {
+        return tonnageMap[sizeCode];
+      }
+    }
+    
+    // Look for direct tonnage indication in model number
+    const directTonnageMatch = modelNumber.match(/\b([1-5])(?:T|TON)\b/i);
+    if (directTonnageMatch && directTonnageMatch[1]) {
+      return directTonnageMatch[1];
+    }
+  }
+  
+  return "";
+}
+
+// Standardize tonnage format
+function standardizeTonnage(tonnage) {
+  if (!tonnage) return "";
+  
+  // Remove any non-numeric or decimal characters
+  let cleanTonnage = tonnage.toString().replace(/[^0-9.]/g, '');
+  
+  // Convert BTU to tons if necessary
+  if (tonnage.toString().toLowerCase().includes('btu')) {
+    const btuMatch = tonnage.match(/([0-9,.]+)/);
+    if (btuMatch && btuMatch[1]) {
+      const btu = parseInt(btuMatch[1].replace(/[^0-9]/g, ''));
+      if (btu > 0) {
+        const tons = Math.round((btu / 12000) * 10) / 10;
+        return tons.toString();
+      }
+    }
+  }
+  
+  return cleanTonnage || "";
+}
+
+// Normalize efficiency rating format
+function normalizeEfficiencyRating(rating) {
+  if (!rating) return "";
+  
+  // Standardize SEER format
+  if (rating.toUpperCase().includes('SEER')) {
+    const seerMatch = rating.match(/([0-9.]+)\s*SEER/i);
+    if (seerMatch && seerMatch[1]) {
+      return `SEER ${seerMatch[1]}`;
+    }
+  }
+  
+  // Standardize AFUE format
+  if (rating.toUpperCase().includes('AFUE')) {
+    const afueMatch = rating.match(/([0-9.]+)%?\s*AFUE/i);
+    if (afueMatch && afueMatch[1]) {
+      return `AFUE ${afueMatch[1]}%`;
+    }
+  }
+  
+  // Standardize HSPF format
+  if (rating.toUpperCase().includes('HSPF')) {
+    const hspfMatch = rating.match(/([0-9.]+)\s*HSPF/i);
+    if (hspfMatch && hspfMatch[1]) {
+      return `HSPF ${hspfMatch[1]}`;
+    }
+  }
+  
+  return rating;
+}
+
+// Format system info for frontend expectations
+function formatForFrontend(enhancedInfo) {
+  const formattedInfo = { ...enhancedInfo };
+  
+  // Map system type to frontend codes
+  if (formattedInfo.systemType) {
+    formattedInfo.systemType = normalizeSystemType(formattedInfo.systemType);
+  }
+  
+  // Map estimated age to frontend age ranges
+  if (formattedInfo.estimatedAge && !formattedInfo.age) {
+    formattedInfo.age = formattedInfo.estimatedAge;
+  }
+  
+  // Map tonnage/capacity to frontend tonnage
+  if (formattedInfo.capacity) {
+    formattedInfo.tonnage = standardizeTonnage(formattedInfo.capacity);
+  }
+  
+  return formattedInfo;
 }
 
 // Helper function to construct the diagnostic prompt
@@ -268,27 +696,32 @@ function constructDiagnosticPrompt(systemType, systemInfo, symptoms) {
   // Reported symptoms - this is crucial information
   prompt += `\n### Reported Symptoms\n${symptoms}\n\n`;
   
+  // Include seasonal context
+  const currentMonth = new Date().getMonth() + 1; // 1-12
+  const season = currentMonth >= 5 && currentMonth <= 9 ? 'summer/cooling' : 'winter/heating';
+  prompt += `### Seasonal Context\n- Current season: ${season} season\n\n`;
+  
   // Clear diagnostic instructions with formatting guidance
   prompt += `## Diagnostic Instructions
 Please provide a detailed HVAC diagnosis with the following sections:
 
 1. **Primary Analysis:** Identify the most likely cause based on symptoms and system details.
 
-2. **Possible Issues:** List potential issues in order of likelihood. For each issue, include:
+2. **Possible Issues:** List all potential issues in order of likelihood. For each issue, include:
    - Issue name
    - Severity (Low/Medium/High)
    - Brief description of the problem
    - Likelihood percentage (how probable this cause is)
 
-3. **Troubleshooting Steps:** Provide specific steps for diagnosing and potentially fixing the issue.
+3. **Troubleshooting Steps:** Provide specific, detailed steps for diagnosing and potentially fixing the issue. Include safety precautions.
 
 4. **Required Tools and Parts:** List specific tools and replacement parts that may be needed.
 
 5. **Repair Complexity:** Categorize as Easy (DIY), Moderate (Some technical knowledge required), or Complex (Professional recommended).
 
-6. **Additional Notes:** Provide any relevant system-specific information.
+6. **Additional Notes:** Provide any relevant system-specific information, manufacturer-known issues, or seasonal considerations.
 
-Format your response in valid JSON using this structure:
+Format your response in valid JSON only. Respond with clean, parseable JSON using this structure:
 {
   "primaryIssue": "Brief statement of most likely cause",
   "possibleIssues": [
@@ -359,6 +792,23 @@ function formatTextResponse(text) {
   if (text.includes("Troubleshooting Steps:")) {
     const stepsSection = text.split("Troubleshooting Steps:")[1].split("\n\n")[0];
     sections.troubleshooting = stepsSection.split("\n").map(line => line.trim()).filter(Boolean);
+  }
+  
+  if (text.includes("Required Tools:") || text.includes("Required Items:")) {
+    const toolsMarker = text.includes("Required Tools:") ? "Required Tools:" : "Required Items:";
+    const toolsSection = text.split(toolsMarker)[1].split("\n\n")[0];
+    sections.requiredItems = toolsSection.split("\n").map(line => line.trim()).filter(Boolean);
+  }
+  
+  if (text.includes("Repair Complexity:")) {
+    const complexityLine = text.split("Repair Complexity:")[1].split("\n")[0];
+    if (complexityLine.toLowerCase().includes("easy")) sections.repairComplexity = "Easy";
+    else if (complexityLine.toLowerCase().includes("moderate")) sections.repairComplexity = "Moderate";
+    else if (complexityLine.toLowerCase().includes("complex")) sections.repairComplexity = "Complex";
+  }
+  
+  if (text.includes("Additional Notes:")) {
+    sections.additionalNotes = text.split("Additional Notes:")[1].split("\n\n")[0].trim();
   }
   
   return sections;
