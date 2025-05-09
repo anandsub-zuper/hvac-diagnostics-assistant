@@ -481,7 +481,7 @@ app.post('/api/analyze-image', async (req, res) => {
     
     // Call OpenAI's GPT-4 Vision API for image analysis
     const completion = await openai.chat.completions.create({
-      model: "gpt-4-vision-preview",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
