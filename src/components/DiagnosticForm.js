@@ -833,45 +833,30 @@ const SystemInfoForm = ({ systemType, onSubmit, onBack }) => {
   };
   
   // IMPROVED: Better data mapping from camera detection to form
-  const handleSystemInfoDetected = (detectedInfo) => {
-    console.log("FORM UPDATE: System info detected from image:", detectedInfo);
-    console.log("FORM UPDATE: Previous form state:", formData);
-    
-    // Debug the serial number specifically
-    console.log("SERIAL NUMBER DEBUG - Received value:", detectedInfo.serialNumber);
-    
-    // Create a properly mapped update with all fields
-    const updatedFormData = {
-      ...formData,
-      
-      // Explicitly map each field with fallback to current values
-      brand: detectedInfo.brand || formData.brand,
-      model: detectedInfo.model || formData.model,
-      systemType: detectedInfo.systemType || formData.systemType,
-      
-      // IMPORTANT: Force serialNumber mapping with extra debug
-      serialNumber: detectedInfo.serialNumber || formData.serialNumber,
-      
-      // FIX: Map estimatedAge to age field when age is empty
-      age: detectedInfo.age || detectedInfo.estimatedAge || formData.age,
-      
-      // FIX: Map capacity to tonnage field when tonnage is empty
-      tonnage: detectedInfo.tonnage || detectedInfo.capacity || formData.tonnage,
-      
-      efficiencyRating: detectedInfo.efficiencyRating || formData.efficiencyRating,
-      lastServiced: detectedInfo.lastServiced || formData.lastServiced,
-      
-      // Any additional fields that might be present
-      ...(detectedInfo.additionalInfo ? { additionalInfo: detectedInfo.additionalInfo } : {})
-    };
-    
-    console.log("FORM UPDATE: Updated form data:", updatedFormData);
-    console.log("FORM UPDATE: Final serialNumber value:", updatedFormData.serialNumber);
-    
-    // Update the state
-    setFormData(updatedFormData);
-    setShowCamera(false);
-  };
+const handleSystemInfoDetected = (detectedInfo) => {
+  console.log("EMERGENCY FIX - Raw data:", JSON.stringify(detectedInfo));
+  
+  // DIRECT APPROACH: Explicitly set each field individually
+  const newData = {};
+  newData.brand = detectedInfo.brand || '';
+  newData.model = detectedInfo.model || '';
+  newData.systemType = detectedInfo.systemType || '';
+  newData.serialNumber = detectedInfo.serialNumber || '';
+  newData.age = detectedInfo.age || detectedInfo.estimatedAge || '';
+  newData.tonnage = detectedInfo.tonnage || detectedInfo.capacity || '';
+  newData.efficiencyRating = detectedInfo.efficiencyRating || '';
+  newData.lastServiced = detectedInfo.lastServiced || '';
+  newData.location = '';
+  newData.additionalInfo = '';
+  
+  console.log("EMERGENCY FIX - Mapped data:", JSON.stringify(newData));
+  
+  // Set state directly with the new object
+  setFormData(newData);
+  
+  // Force a form re-render by closing the camera
+  setShowCamera(false);
+};
 
   // Get fields based on system type
   const getSystemSpecificFields = () => {
