@@ -198,151 +198,175 @@ const CameraIcon = styled.div`
   color: #aaa;
 `;
 
-// Camera capture component - UPDATED with fixes
+// Completely redesigned CameraCapture component
 const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
-  const [stream, setStream] = useState(null);
   const [capturedImage, setCapturedImage] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStatus, setAnalysisStatus] = useState(null);
   const [detectedInfo, setDetectedInfo] = useState(null);
   const [cameraError, setCameraError] = useState(null);
-  const [cameraLoading, setCameraLoading] = useState(true);
-  const videoRef = useRef(null);
+  const [cameraReady, setCameraReady] = useState(false);
+  
+  // References
+  const videoElementRef = useRef(null);
+  const mediaStreamRef = useRef(null);
   const canvasRef = useRef(null);
+  
   const API_URL = process.env.REACT_APP_BACKEND_URL || 'https://hvac-diagnostics-api-f10ccd81443c.herokuapp.com';
 
-  // IMPROVED: Start camera with better error handling and debugging
-  const startCamera = async () => {
-    console.log("Attempting to access camera...");
-    setCameraLoading(true);
-    setCameraError(null);
+  // Initialize camera after component is fully mounted
+  useEffect(() => {
+    let isMounted = true;
+    
+    const initializeCamera = async () => {
+      // Wait for a moment to ensure the DOM is fully rendered
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // If component has unmounted during the timeout, abort
+      if (!isMounted) return;
+      
+      try {
+        // Verify browser support
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error("Your browser doesn't support camera access");
+        }
+        
+        // Get the video element directly from the DOM
+        const videoElement = document.getElementById('camera-video-element');
+        if (!videoElement) {
+          throw new Error("Camera initialization failed - video element not found");
+        }
+        
+        // Store in ref
+        videoElementRef.current = videoElement;
+        
+        // Request camera access
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        mediaStreamRef.current = stream;
+        
+        // Attach stream to video element
+        videoElement.srcObject = stream;
+        
+        // Listen for when video is ready to play
+        videoElement.onloadedmetadata = () => {
+          if (!isMounted) return;
+          
+          videoElement.play()
+            .then(() => {
+              console.log("Camera started successfully");
+              setCameraReady(true);
+            })
+            .catch(err => {
+              console.error("Failed to play video:", err);
+              setCameraError("Failed to start camera playback");
+            });
+        };
+      } catch (err) {
+        console.error("Camera initialization error:", err);
+        if (isMounted) {
+          setCameraError(`Camera error: ${err.message}`);
+        }
+      }
+    };
+    
+    // Start initialization
+    initializeCamera();
+    
+    // Cleanup function
+    return () => {
+      isMounted = false;
+      
+      // Stop media tracks
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+      
+      // Clear video source
+      if (videoElementRef.current) {
+        videoElementRef.current.srcObject = null;
+      }
+    };
+  }, []);
+  
+  // Take photo function
+  const captureImage = () => {
+    if (!videoElementRef.current || !canvasRef.current) {
+      setCameraError("Cannot capture image - camera not ready");
+      return;
+    }
     
     try {
-      // Check if mediaDevices is supported
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error("Camera API not supported in this browser");
-      }
-      
-      console.log("Requesting camera permissions...");
-      const constraints = { 
-        video: { 
-          facingMode: "environment", // Use back camera if available
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        } 
-      };
-      
-      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-      console.log("Camera access granted!", mediaStream);
-      
-      if (mediaStream.getVideoTracks().length === 0) {
-        throw new Error("No video tracks found in media stream");
-      }
-      
-      console.log("Video tracks:", mediaStream.getVideoTracks());
-      setStream(mediaStream);
-      
-      // Explicitly check and set video source
-      if (videoRef.current) {
-        console.log("Setting video source...");
-        videoRef.current.srcObject = mediaStream;
-        
-        // Force the video to play
-        const playPromise = videoRef.current.play();
-        if (playPromise !== undefined) {
-          playPromise
-            .then(() => console.log("Video playback started successfully"))
-            .catch(err => {
-              console.error("Error playing video:", err);
-              setCameraError(`Error playing video: ${err.message}`);
-            });
-        }
-      } else {
-        console.error("Video element reference is null");
-        throw new Error("Video element not found");
-      }
-      
-      setCameraLoading(false);
-    } catch (err) {
-      console.error("Error accessing camera:", err);
-      setCameraError(`Camera error: ${err.message}. Please check camera permissions and try again.`);
-      setCameraLoading(false);
-    }
-  };
-
-  const stopCamera = () => {
-    console.log("Stopping camera...");
-    if (stream) {
-      console.log("Stopping tracks...");
-      stream.getTracks().forEach(track => {
-        console.log(`Stopping track: ${track.kind}`);
-        track.stop();
-      });
-      setStream(null);
-      
-      // Also clear video source
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
-    }
-  };
-
-  const captureImage = () => {
-    console.log("Capturing image...");
-    if (videoRef.current && canvasRef.current) {
+      const videoElement = videoElementRef.current;
       const canvas = canvasRef.current;
-      const video = videoRef.current;
       
-      // Set canvas dimensions to match video
-      console.log(`Video dimensions: ${video.videoWidth}x${video.videoHeight}`);
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
-      
-      if (canvas.width === 0 || canvas.height === 0) {
-        console.error("Invalid canvas dimensions");
-        setCameraError("Unable to capture image - video dimensions not available");
-        return;
-      }
+      // Set canvas size to match video
+      canvas.width = videoElement.videoWidth || 640;
+      canvas.height = videoElement.videoHeight || 480;
       
       // Draw video frame to canvas
       const ctx = canvas.getContext('2d');
-      try {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        // Convert to data URL
-        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
-        console.log("Image captured successfully", imageDataUrl.substring(0, 50) + "...");
-        setCapturedImage(imageDataUrl);
-        
-        // Stop camera after capturing
-        stopCamera();
-        
-        // Pass image data to parent component if needed
-        if (onImageCaptured) {
-          onImageCaptured(imageDataUrl);
-        }
-      } catch (err) {
-        console.error("Error capturing image:", err);
-        setCameraError(`Error capturing image: ${err.message}`);
+      ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+      
+      // Convert to data URL
+      const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      setCapturedImage(imageDataUrl);
+      
+      // Stop camera
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
       }
-    } else {
-      console.error("Video or canvas element not available");
-      setCameraError("Video or canvas element not available");
+      
+      // Pass image to parent if needed
+      if (onImageCaptured) {
+        onImageCaptured(imageDataUrl);
+      }
+    } catch (err) {
+      console.error("Error capturing image:", err);
+      setCameraError(`Failed to capture image: ${err.message}`);
     }
   };
-
-  // Reset camera UI states
-  const resetCamera = () => {
+  
+  // Retake photo
+  const retakePhoto = () => {
     setCapturedImage(null);
-    setDetectedInfo(null);
     setAnalysisStatus(null);
-    setCameraError(null);
-    startCamera();
+    setDetectedInfo(null);
+    
+    // Reinitialize camera
+    if (videoElementRef.current) {
+      videoElementRef.current.srcObject = null;
+    }
+    
+    setCameraReady(false);
+    
+    // Restart camera after a brief delay
+    setTimeout(async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        mediaStreamRef.current = stream;
+        
+        if (videoElementRef.current) {
+          videoElementRef.current.srcObject = stream;
+          videoElementRef.current.play()
+            .then(() => {
+              setCameraReady(true);
+            })
+            .catch(err => {
+              console.error("Failed to restart video:", err);
+              setCameraError("Failed to restart camera");
+            });
+        }
+      } catch (err) {
+        console.error("Error restarting camera:", err);
+        setCameraError(`Failed to restart camera: ${err.message}`);
+      }
+    }, 500);
   };
-
+  
+  // Analyze image
   const analyzeImage = async () => {
     if (!capturedImage) {
-      setCameraError("No image captured to analyze");
+      setCameraError("No image to analyze");
       return;
     }
     
@@ -353,80 +377,41 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
     });
     
     try {
-      console.log("Sending image for analysis...");
-      
       // Extract base64 data
       const base64Data = capturedImage.split(',')[1];
-      if (!base64Data) {
-        throw new Error("Invalid image format");
-      }
       
-      // Send to backend for analysis
-      const analysisResponse = await axios.post(`${API_URL}/api/analyze-image`, {
+      // Send to backend
+      const response = await axios.post(`${API_URL}/api/analyze-image`, {
         image: base64Data
       }, {
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        timeout: 25000 // 25 second timeout
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 25000
       });
       
-      console.log("Analysis response:", analysisResponse.data);
-      
-      if (analysisResponse.data && analysisResponse.data.systemInfo) {
-        setDetectedInfo(analysisResponse.data.systemInfo);
-        
+      if (response.data && response.data.systemInfo) {
+        setDetectedInfo(response.data.systemInfo);
         setAnalysisStatus({
           type: 'success',
           message: "System information successfully detected!"
         });
         
-        // Pass detected info to parent component
+        // Pass to parent
         if (onSystemInfoDetected) {
-          onSystemInfoDetected(analysisResponse.data.systemInfo);
+          onSystemInfoDetected(response.data.systemInfo);
         }
       } else {
         throw new Error("Invalid response from image analysis");
       }
-      
-    } catch (error) {
-      console.error("Error analyzing image:", error);
+    } catch (err) {
+      console.error("Analysis error:", err);
       setAnalysisStatus({
         type: 'error',
-        message: "Failed to analyze the image. Please try again or enter system details manually."
+        message: "Failed to analyze image. Please try again or enter details manually."
       });
     } finally {
       setIsAnalyzing(false);
     }
   };
-
-  const retakePhoto = () => {
-    resetCamera();
-  };
-
-  // VIDEO ELEMENT EVENT HANDLERS
-  const handleCanPlay = () => {
-    console.log("Video can play now");
-    setCameraLoading(false);
-  };
-  
-  const handleVideoError = (e) => {
-    console.error("Video element error:", e);
-    setCameraError(`Video error: ${e.target.error ? e.target.error.message : "Unknown error"}`);
-    setCameraLoading(false);
-  };
-
-  // Start camera when component mounts
-  useEffect(() => {
-    console.log("CameraCapture component mounted");
-    startCamera();
-    
-    // Clean up when component unmounts
-    return () => {
-      console.log("CameraCapture component unmounting");
-      stopCamera();
-    };
-  }, []);
 
   return (
     <CameraContainer>
@@ -434,56 +419,56 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
         Position camera to clearly capture the model/serial number plate on your HVAC system
       </FormDescription>
       
-      {/* Camera View */}
-      {!capturedImage && (
-        cameraLoading ? (
-          <CameraPlaceholder>
-            <CameraIcon>📷</CameraIcon>
-            <p>Camera loading...</p>
-          </CameraPlaceholder>
-        ) : (
-          stream ? (
+      <div style={{ minHeight: '300px', position: 'relative' }}>
+        {/* IMPORTANT: We use a direct ID here instead of just a ref */}
+        {!capturedImage && (
+          <>
+            {/* Camera loading or error state */}
+            {(!cameraReady || cameraError) && (
+              <CameraPlaceholder>
+                <CameraIcon>{cameraError ? '🚫' : '📷'}</CameraIcon>
+                <p>{cameraError ? 'Camera not available' : 'Camera loading...'}</p>
+              </CameraPlaceholder>
+            )}
+            
+            {/* The video element - ALWAYS rendered with a specific ID */}
             <VideoPreview 
-              ref={videoRef} 
+              id="camera-video-element"
               autoPlay 
               playsInline 
               muted
-              onCanPlay={handleCanPlay}
-              onError={handleVideoError}
+              style={{ 
+                display: cameraReady && !cameraError ? 'block' : 'none'
+              }}
             />
-          ) : (
-            <CameraPlaceholder>
-              <CameraIcon>🚫</CameraIcon>
-              <p>Camera not available</p>
-            </CameraPlaceholder>
-          )
-        )
-      )}
+          </>
+        )}
+        
+        {/* Captured image */}
+        {capturedImage && (
+          <ImagePreview src={capturedImage} alt="Captured HVAC system" />
+        )}
+      </div>
       
-      {/* Display captured image */}
-      {capturedImage && (
-        <ImagePreview src={capturedImage} alt="Captured HVAC system" />
-      )}
-      
-      {/* Hidden canvas for capturing */}
+      {/* Canvas for image capture */}
       <canvas ref={canvasRef} style={{ display: 'none' }} />
       
-      {/* Camera error message */}
+      {/* Error message */}
       {cameraError && (
         <StatusMessage error>
           {cameraError}
         </StatusMessage>
       )}
       
-      {/* Camera control buttons */}
+      {/* Camera controls */}
       <ButtonContainer>
         {!capturedImage && (
           <Button 
             primary 
             onClick={captureImage}
-            disabled={!stream || cameraLoading}
+            disabled={!cameraReady || !!cameraError}
           >
-            Take Photo
+            {!cameraReady ? 'Camera Loading...' : 'Take Photo'}
           </Button>
         )}
         
