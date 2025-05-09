@@ -481,45 +481,62 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
     });
   };
   
-  // Submit combined data (detected + manual) - ENHANCED VERSION
-  const submitCombinedData = () => {
-    // Add detailed logging to diagnose serial number issue
-    console.log("DATA TRANSFER DEBUG - Full detected info:", detectedInfo);
+// Submit combined data (detected + manual) - FIXED VERSION
+const submitCombinedData = () => {
+  // Log the detected info BEFORE mapping
+  console.log("PRE-MAPPING CHECK - serialNumber value:", detectedInfo?.serialNumber);
+  console.log("PRE-MAPPING CHECK - Full detected info:", detectedInfo);
+  
+  // IMPORTANT: Create a new object first, NOT using spread operator which might lose properties
+  const combinedInfo = {};
+  
+  // First, copy specific fields from detected info
+  if (detectedInfo) {
+    combinedInfo.brand = detectedInfo.brand || '';
+    combinedInfo.model = detectedInfo.model || '';
+    combinedInfo.systemType = detectedInfo.systemType || '';
     
-    // Create a properly mapped combined info object with ALL fields
-    const combinedInfo = {
-      // Include all detected info
-      ...(detectedInfo || {}),
-      
-      // Explicitly map key fields to ensure they're included
-      brand: detectedInfo?.brand || '',
-      model: detectedInfo?.model || '',
-      systemType: detectedInfo?.systemType || '',
-      
-      // IMPORTANT: Explicitly map serial number with extra logging
-      serialNumber: detectedInfo?.serialNumber || '',
-      
-      // FIX: Map age and estimatedAge
-      age: detectedInfo?.age || detectedInfo?.estimatedAge || '',
-      
-      // FIX: Map tonnage and capacity
-      tonnage: detectedInfo?.tonnage || detectedInfo?.capacity || '',
-      
-      efficiencyRating: detectedInfo?.efficiencyRating || '',
-      
-      // Add manual entries which will override any detected values
-      ...(manualEntryData || {})
-    };
+    // CRITICAL FIX: Explicitly assign the serial number
+    combinedInfo.serialNumber = detectedInfo.serialNumber || '';
     
-    // Double-check we have serial number in FINAL object
-    console.log("DATA TRANSFER: Final serialNumber value:", combinedInfo.serialNumber);
-    console.log("DATA TRANSFER: Submitting to form:", combinedInfo);
-    
-    // Pass to parent
-    if (onSystemInfoDetected) {
+    combinedInfo.age = detectedInfo.age || detectedInfo.estimatedAge || '';
+    combinedInfo.tonnage = detectedInfo.tonnage || detectedInfo.capacity || '';
+    combinedInfo.efficiencyRating = detectedInfo.efficiencyRating || '';
+    combinedInfo.lastServiced = detectedInfo.lastServiced || '';
+  }
+  
+  // Then apply any manual entries that have values
+  if (manualEntryData.serialNumber) {
+    combinedInfo.serialNumber = manualEntryData.serialNumber;
+  }
+  
+  if (manualEntryData.tonnage) {
+    combinedInfo.tonnage = manualEntryData.tonnage;
+  }
+  
+  if (manualEntryData.age) {
+    combinedInfo.age = manualEntryData.age;
+  }
+  
+  if (manualEntryData.lastServiced) {
+    combinedInfo.lastServiced = manualEntryData.lastServiced;
+  }
+  
+  // Log the FINAL data with specific focus on the serial number
+  console.log("FINAL MAPPING CHECK - serialNumber:", combinedInfo.serialNumber);
+  console.log("DATA TRANSFER: Submitting to form:", combinedInfo);
+  
+  // Pass to parent
+  if (onSystemInfoDetected) {
+    // Wrap in try/catch to catch any errors
+    try {
       onSystemInfoDetected(combinedInfo);
+    } catch (err) {
+      console.error("Error in onSystemInfoDetected callback:", err);
+      alert("Error transferring data: " + err.message);
     }
-  };
+  }
+};
 
   return (
     <CameraContainer>
