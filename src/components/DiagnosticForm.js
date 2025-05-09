@@ -1,5 +1,5 @@
 // src/components/DiagnosticForm.js
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import styled from 'styled-components';
 import axios from 'axios';
 
@@ -126,6 +126,79 @@ const ToggleContainer = styled.div`
   cursor: pointer;
 `;
 
+const ToggleButton = styled.span`
+  display: flex;
+  align-items: center;
+  color: #3498db;
+  font-weight: bold;
+  
+  &:before {
+    content: ${props => props.open ? '"↑"' : '"↓"'};
+    margin-right: 5px;
+  }
+`;
+
+// Camera components
+const CameraContainer = styled.div`
+  margin-bottom: 20px;
+`;
+
+const VideoPreview = styled.video`
+  width: 100%;
+  max-width: 500px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background-color: #f0f0f0;
+  min-height: 300px; /* Ensure there's space for the video */
+  object-fit: cover;
+`;
+
+const ImagePreview = styled.img`
+  width: 100%;
+  max-width: 500px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+`;
+
+const StatusMessage = styled.div`
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 4px;
+  background-color: ${props => props.success ? '#d4edda' : props.error ? '#f8d7da' : props.warning ? '#fff3cd' : '#cce5ff'};
+  color: ${props => props.success ? '#155724' : props.error ? '#721c24' : props.warning ? '#856404' : '#004085'};
+`;
+
+const DetectedInfo = styled.div`
+  margin-top: 15px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-left: 4px solid #3498db;
+  border-radius: 4px;
+`;
+
+const CameraPlaceholder = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 500px;
+  height: 300px;
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  color: #666;
+  text-align: center;
+  padding: 20px;
+  cursor: pointer;
+`;
+
+const CameraIcon = styled.div`
+  font-size: 48px;
+  margin-bottom: 15px;
+  color: #aaa;
+`;
+
 const RotateTip = styled.div`
   background-color: rgba(52, 152, 219, 0.1);
   padding: 10px;
@@ -198,84 +271,13 @@ const MissingInfo = styled.span`
   font-style: italic;
 `;
 
-const ToggleButton = styled.span`
-  display: flex;
-  align-items: center;
-  color: #3498db;
-  font-weight: bold;
-  
-  &:before {
-    content: ${props => props.open ? '"↑"' : '"↓"'};
-    margin-right: 5px;
-  }
-`;
-
-// Camera components
-const CameraContainer = styled.div`
-  margin-bottom: 20px;
-`;
-
-const VideoPreview = styled.video`
-  width: 100%;
-  max-width: 500px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  background-color: #f0f0f0;
-  min-height: 300px; /* Ensure there's space for the video */
-  object-fit: cover;
-`;
-
-const ImagePreview = styled.img`
-  width: 100%;
-  max-width: 500px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-`;
-
-const StatusMessage = styled.div`
-  margin-top: 10px;
-  padding: 10px;
-  border-radius: 4px;
-  background-color: ${props => props.success ? '#d4edda' : props.error ? '#f8d7da' : '#cce5ff'};
-  color: ${props => props.success ? '#155724' : props.error ? '#721c24' : '#004085'};
-`;
-
-const DetectedInfo = styled.div`
-  margin-top: 15px;
-  padding: 15px;
-  background-color: #f8f9fa;
-  border-left: 4px solid #3498db;
-  border-radius: 4px;
-`;
-
-const CameraPlaceholder = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  max-width: 500px;
-  height: 300px;
-  background-color: #f0f0f0;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  color: #666;
-  text-align: center;
-  padding: 20px;
-`;
-
-const CameraIcon = styled.div`
-  font-size: 48px;
-  margin-bottom: 15px;
-  color: #aaa;
-`;
+// Enhanced CameraCapture component with better data transfer
 const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
   const [capturedImage, setCapturedImage] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStatus, setAnalysisStatus] = useState(null);
   const [detectedInfo, setDetectedInfo] = useState(null);
   const [cameraError, setCameraError] = useState(null);
-  // New state variables for enhanced features
   const [showTips, setShowTips] = useState(false);
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualEntryData, setManualEntryData] = useState({
@@ -285,12 +287,12 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
     tonnage: ''
   });
   
-  const fileInputRef = useRef(null);
-  const canvasRef = useRef(null);
-  
   // Detect if we're on iOS
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   
+  const fileInputRef = useRef(null);
+  
+  // API URL from environment or default
   const API_URL = process.env.REACT_APP_BACKEND_URL || 'https://hvac-diagnostics-api-f10ccd81443c.herokuapp.com';
 
   // Handle file selection (from camera or gallery)
@@ -309,7 +311,7 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
         const imageDataUrl = e.target?.result;
         if (typeof imageDataUrl === 'string') {
           setCapturedImage(imageDataUrl);
-          setShowTips(true); // Show tips after image capture
+          setShowTips(true);
           
           // Pass image to parent if needed
           if (onImageCaptured) {
@@ -431,13 +433,28 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
     });
   };
   
-  // Submit combined data (detected + manual)
+  // Submit combined data (detected + manual) - IMPROVED VERSION
   const submitCombinedData = () => {
-    // Combine detected info with manual entry
+    // Create a properly mapped combined info object with ALL fields
     const combinedInfo = {
+      // Include all detected info
       ...(detectedInfo || {}),
-      ...manualEntryData
+      
+      // Explicitly map key fields to ensure they're included
+      brand: detectedInfo?.brand || '',
+      model: detectedInfo?.model || '',
+      systemType: detectedInfo?.systemType || '',
+      serialNumber: detectedInfo?.serialNumber || '',
+      age: detectedInfo?.age || detectedInfo?.estimatedAge || '',
+      tonnage: detectedInfo?.tonnage || detectedInfo?.capacity || '',
+      efficiencyRating: detectedInfo?.efficiencyRating || '',
+      
+      // Add manual entries which will override any detected values
+      ...(manualEntryData || {})
     };
+    
+    // Log what we're sending to the parent form
+    console.log("DATA TRANSFER: Submitting to form:", combinedInfo);
     
     // Pass to parent
     if (onSystemInfoDetected) {
@@ -448,12 +465,12 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
   return (
     <CameraContainer>
       <FormDescription>
-        Take a clear photo of your system's data plate to automatically populate system information.
+        Take a clear photo of your system's data plate to automatically detect system information.
       </FormDescription>
       
       <div style={{ minHeight: '300px', position: 'relative' }}>
         {/* 
-          IMPORTANT: Different approach based on platform
+          Different approach based on platform
           - For iOS: "accept" only but no "capture" attribute
           - For others: Include both with "environment" for back camera
         */}
@@ -493,7 +510,7 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
         <RotateTip>
           <TipIcon>💡</TipIcon>
           <div>
-            <strong>Tip:</strong> For best results, make sure the data plate is well-lit and all text is clearly visible. 
+            <strong>Tip:</strong> For best results, make sure the data plate is well-lit and text is clearly visible. 
             Rotate your device if needed to get a better angle.
           </div>
         </RotateTip>
@@ -540,7 +557,7 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
         </StatusMessage>
       )}
       
-      {/* Display detected info with improved formatting */}
+      {/* Display detected info with improved table layout */}
       {detectedInfo && (
         <DetectedInfo>
           <h4>Detected System Information:</h4>
@@ -554,12 +571,10 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
                 <th>Model:</th>
                 <td>{detectedInfo.model || <MissingInfo>Not detected</MissingInfo>}</td>
               </tr>
-              {detectedInfo.systemType && (
-                <tr>
-                  <th>System Type:</th>
-                  <td>{formatSystemType(detectedInfo.systemType)}</td>
-                </tr>
-              )}
+              <tr>
+                <th>System Type:</th>
+                <td>{detectedInfo.systemType ? formatSystemType(detectedInfo.systemType) : <MissingInfo>Not detected</MissingInfo>}</td>
+              </tr>
               <tr>
                 <th>Serial Number:</th>
                 <td>{detectedInfo.serialNumber || <MissingInfo>Not detected</MissingInfo>}</td>
@@ -698,7 +713,6 @@ function formatSystemType(type) {
   return displayNames[type] || type;
 }
 
-
 // System type selection component
 const SystemTypeForm = ({ onSubmit }) => {
   const systemTypes = [
@@ -759,12 +773,33 @@ const SystemInfoForm = ({ systemType, onSubmit, onBack }) => {
     onSubmit(formData);
   };
   
+  // IMPROVED: Better data mapping from camera detection to form
   const handleSystemInfoDetected = (detectedInfo) => {
-    console.log("System info detected from image:", detectedInfo);
-    setFormData({
+    console.log("FORM UPDATE: System info detected from image:", detectedInfo);
+    console.log("FORM UPDATE: Previous form state:", formData);
+    
+    // Create a properly mapped update with all fields
+    const updatedFormData = {
       ...formData,
-      ...detectedInfo
-    });
+      
+      // Explicitly map each field with fallback to current values
+      brand: detectedInfo.brand || formData.brand,
+      model: detectedInfo.model || formData.model,
+      systemType: detectedInfo.systemType || formData.systemType,
+      serialNumber: detectedInfo.serialNumber || formData.serialNumber,
+      age: detectedInfo.age || formData.age,
+      tonnage: detectedInfo.tonnage || formData.tonnage,
+      efficiencyRating: detectedInfo.efficiencyRating || formData.efficiencyRating,
+      lastServiced: detectedInfo.lastServiced || formData.lastServiced,
+      
+      // Any additional fields that might be present
+      ...(detectedInfo.additionalInfo ? { additionalInfo: detectedInfo.additionalInfo } : {})
+    };
+    
+    console.log("FORM UPDATE: Updated form data:", updatedFormData);
+    
+    // Update the state
+    setFormData(updatedFormData);
     setShowCamera(false);
   };
 
