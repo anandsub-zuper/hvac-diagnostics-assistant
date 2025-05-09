@@ -1,5 +1,5 @@
 // src/components/DiagnosticForm.js
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import styled from 'styled-components';
 import axios from 'axios';
 
