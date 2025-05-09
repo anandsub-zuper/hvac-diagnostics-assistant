@@ -40,7 +40,7 @@ app.post('/api/diagnose', async (req, res) => {
     
     // Call OpenAI API
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o", // Using a faster model to reduce latency
+      model: "gpt-3.5-turbo", // Using a faster model to reduce latency
       messages: [
         {
           role: "system",
