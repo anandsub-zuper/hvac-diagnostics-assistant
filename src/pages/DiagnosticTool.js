@@ -27,14 +27,37 @@ const OfflineMessage = styled.div`
 const API_URL = process.env.REACT_APP_BACKEND_URL || 'https://hvac-diagnostics-api-f10ccd81443c.herokuapp.com';
 
 const DiagnosticTool = ({ isOnline }) => {
-  const [step, setStep] = useState(1);
-  const [systemType, setSystemType] = useState('');
-  const [, setSymptoms] = useState('');
-  const [systemInfo, setSystemInfo] = useState({});
+  // Add sessionStorage for persistence
+  const [step, setStep] = useState(() => {
+    const savedStep = sessionStorage.getItem('diagnosticStep');
+    return savedStep ? parseInt(savedStep) : 1;
+  });
+  
+  const [systemType, setSystemType] = useState(() => {
+    return sessionStorage.getItem('diagnosticSystemType') || '';
+  });
+  
+  const [systemInfo, setSystemInfo] = useState(() => {
+    const savedInfo = sessionStorage.getItem('diagnosticSystemInfo');
+    return savedInfo ? JSON.parse(savedInfo) : {};
+  });
+  
+  const [symptoms, setSymptoms] = useState(() => {
+    return sessionStorage.getItem('diagnosticSymptoms') || '';
+  });
+  
   const [diagnosticResult, setDiagnosticResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [session, setSession] = useState(null);
+
+  // Add effect to save state when it changes
+  useEffect(() => {
+    sessionStorage.setItem('diagnosticStep', step);
+    sessionStorage.setItem('diagnosticSystemType', systemType);
+    sessionStorage.setItem('diagnosticSystemInfo', JSON.stringify(systemInfo));
+    sessionStorage.setItem('diagnosticSymptoms', symptoms);
+  }, [step, systemType, systemInfo, symptoms]);
 
   useEffect(() => {
     // Generate a unique session ID when component mounts
@@ -64,8 +87,8 @@ const DiagnosticTool = ({ isOnline }) => {
           console.log('Attempting online diagnosis with Heroku API...');
           
           // Use the Heroku API for diagnosis
-        const apiUrl = new URL('api/diagnose', API_URL).toString();
-        console.log('Using API URL:', apiUrl); // Debug logging
+          const apiUrl = new URL('api/diagnose', API_URL).toString();
+          console.log('Using API URL:', apiUrl); // Debug logging
           const response = await axios.post(apiUrl, {
             systemType,
             systemInfo,
@@ -140,6 +163,12 @@ const DiagnosticTool = ({ isOnline }) => {
     setDiagnosticResult(null);
     setError(null);
     setSession(`session-${Date.now()}`);
+    
+    // Clear session storage
+    sessionStorage.removeItem('diagnosticStep');
+    sessionStorage.removeItem('diagnosticSystemType');
+    sessionStorage.removeItem('diagnosticSystemInfo');
+    sessionStorage.removeItem('diagnosticSymptoms');
   };
 
   // When using the app in development, print info to help with debugging
