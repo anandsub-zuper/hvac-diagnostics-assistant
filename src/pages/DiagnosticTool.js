@@ -26,42 +26,52 @@ const OfflineMessage = styled.div`
 // Configure API URL based on environment
 const API_URL = process.env.REACT_APP_BACKEND_URL || 'https://hvac-diagnostics-api-f10ccd81443c.herokuapp.com';
 
-const DiagnosticTool = ({ isOnline }) => {
-  // Add sessionStorage for persistence
-  const [step, setStep] = useState(() => {
-    const savedStep = sessionStorage.getItem('diagnosticStep');
-    return savedStep ? parseInt(savedStep) : 1;
-  });
+// Use props for diagnosticData and setDiagnosticData from App.js
+const DiagnosticTool = ({ isOnline, diagnosticData, setDiagnosticData }) => {
+  // Use app-level state for persistent data
+  const { step, systemType, systemInfo, symptoms } = diagnosticData;
   
-  const [systemType, setSystemType] = useState(() => {
-    return sessionStorage.getItem('diagnosticSystemType') || '';
-  });
-  
-  const [systemInfo, setSystemInfo] = useState(() => {
-    const savedInfo = sessionStorage.getItem('diagnosticSystemInfo');
-    return savedInfo ? JSON.parse(savedInfo) : {};
-  });
-  
-  const [symptoms, setSymptoms] = useState(() => {
-    return sessionStorage.getItem('diagnosticSymptoms') || '';
-  });
-  
+  // We'll still need some local state for things that don't need to persist
   const [diagnosticResult, setDiagnosticResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [session, setSession] = useState(null);
 
-  // Add effect to save state when it changes
-  useEffect(() => {
-    sessionStorage.setItem('diagnosticStep', step);
-    sessionStorage.setItem('diagnosticSystemType', systemType);
-    sessionStorage.setItem('diagnosticSystemInfo', JSON.stringify(systemInfo));
-    sessionStorage.setItem('diagnosticSymptoms', symptoms);
-  }, [step, systemType, systemInfo, symptoms]);
+  // Helper functions to update individual fields in app-level state
+  const setStep = (newStep) => {
+    setDiagnosticData({
+      ...diagnosticData,
+      step: newStep
+    });
+  };
+  
+  const setSystemType = (newType) => {
+    setDiagnosticData({
+      ...diagnosticData,
+      systemType: newType
+    });
+  };
+  
+  const setSystemInfo = (newInfo) => {
+    setDiagnosticData({
+      ...diagnosticData,
+      systemInfo: newInfo
+    });
+  };
+  
+  const setSymptoms = (newSymptoms) => {
+    setDiagnosticData({
+      ...diagnosticData,
+      symptoms: newSymptoms
+    });
+  };
 
   useEffect(() => {
     // Generate a unique session ID when component mounts
     setSession(`session-${Date.now()}`);
+    
+    // For debugging
+    console.log("DiagnosticTool mounted with state:", diagnosticData);
   }, []);
 
   const handleSystemTypeSelect = (type) => {
@@ -70,6 +80,7 @@ const DiagnosticTool = ({ isOnline }) => {
   };
 
   const handleSystemInfoSubmit = (info) => {
+    console.log("System info being saved:", info);
     setSystemInfo(info);
     setStep(3);
   };
@@ -156,19 +167,18 @@ const DiagnosticTool = ({ isOnline }) => {
   };
 
   const resetDiagnostic = () => {
-    setStep(1);
-    setSystemType('');
-    setSymptoms('');
-    setSystemInfo({});
+    // Reset all app-level state
+    setDiagnosticData({
+      step: 1,
+      systemType: '',
+      systemInfo: {},
+      symptoms: ''
+    });
+    
+    // Reset local state
     setDiagnosticResult(null);
     setError(null);
     setSession(`session-${Date.now()}`);
-    
-    // Clear session storage
-    sessionStorage.removeItem('diagnosticStep');
-    sessionStorage.removeItem('diagnosticSystemType');
-    sessionStorage.removeItem('diagnosticSystemInfo');
-    sessionStorage.removeItem('diagnosticSymptoms');
   };
 
   // When using the app in development, print info to help with debugging
@@ -176,8 +186,9 @@ const DiagnosticTool = ({ isOnline }) => {
     if (process.env.NODE_ENV === 'development') {
       console.log('API URL:', API_URL);
       console.log('Online status:', isOnline);
+      console.log('Current diagnostic data:', diagnosticData);
     }
-  }, [isOnline]);
+  }, [isOnline, diagnosticData]);
 
   return (
     <Container>
@@ -200,6 +211,7 @@ const DiagnosticTool = ({ isOnline }) => {
         <DiagnosticForm 
           formType="systemInfo"
           systemType={systemType}
+          initialFormData={systemInfo} // Pass the saved system info to preserve it
           onSubmit={handleSystemInfoSubmit}
           onBack={() => setStep(1)}
         />
