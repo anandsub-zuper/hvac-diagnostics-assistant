@@ -2,6 +2,9 @@
 const express = require('express');
 const cors = require('cors');
 const { OpenAI } = require('openai');
+const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -12,6 +15,85 @@ const PORT = process.env.PORT || 3000; // Fallback to 3000 for local development
 // Configure OpenAI client
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
+});
+
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  }
+});
+
+app.post('/api/analyze-image', upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    const imageBuffer = req.file.buffer;
+    const base64Image = imageBuffer.toString('base64');
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: "You are an HVAC technician assistant that specializes in identifying HVAC systems from images. Extract model, brand, age, and other relevant details visible in the image."
+        },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "Identify all visible information about this HVAC system. Look for brand name, model number, serial number, manufacturing date, tonnage, and any other specifications. Return the information in JSON format with the following structure: {\"brand\": \"...\", \"model\": \"...\", \"serialNumber\": \"...\", \"age\": \"...\", \"tonnage\": \"...\", \"additionalInfo\": \"...\"}. If you cannot determine a field, leave it as an empty string." },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:image/jpeg;base64,${base64Image}`
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 800
+    });
+    onst responseText = completion.choices[0].message.content;
+    
+    // Try to parse JSON from response
+    let systemInfo = {};
+    try {
+      // Extract JSON from response text (it might be wrapped in markdown code blocks)
+      const jsonMatch = responseText.match(/```json\n([\s\S]*)\n```/) || 
+                        responseText.match(/{[\s\S]*}/);
+                        
+      const jsonString = jsonMatch ? jsonMatch[1] || jsonMatch[0] : responseText;
+      systemInfo = JSON.parse(jsonString);
+    } catch (parseError) {
+      console.error("Error parsing JSON from OpenAI response:", parseError);
+      
+      // If parsing fails, use regex to extract information
+      const brandMatch = responseText.match(/brand["\s:]+([^"}\s,]+)/i);
+      const modelMatch = responseText.match(/model["\s:]+([^"}\s,]+)/i);
+      
+      systemInfo = {
+        brand: brandMatch ? brandMatch[1] : "",
+        model: modelMatch ? modelMatch[1] : "",
+        age: "",
+        tonnage: "",
+        additionalInfo: "Information extracted from image analysis"
+      };
+    }
+    
+    // Return the extracted system information
+    return res.json({ 
+      systemInfo,
+      rawAnalysis: responseText
+    });
+    
+  } catch (error) {
+    console.error('Image analysis error:', error);
+    return res.status(500).json({ 
+      error: 'An error occurred while analyzing the image',
+      details: error.message 
+    });
+  }
 });
 
 // Middleware
