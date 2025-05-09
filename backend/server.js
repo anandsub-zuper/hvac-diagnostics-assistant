@@ -520,27 +520,50 @@ app.post('/api/analyze-image', async (req, res) => {
     const responseText = completion.choices[0].message.content;
     let systemInfo;
     
-    try {
-      // Try to parse the JSON response
-      systemInfo = JSON.parse(responseText);
-    } catch (parseError) {
-      console.error("Error parsing image analysis JSON:", parseError);
+ try {
+  // First, log the actual response to help debugging
+  console.log("OpenAI Vision API raw response:", responseText.substring(0, 200) + "...");
+  
+  // Try to parse the JSON response
+  let systemInfo;
+  
+  try {
+    // First, clean up the response text to ensure it's valid JSON
+    // Remove any backticks, code blocks or markdown formatting
+    let cleanedResponse = responseText
+      .replace(/```json\s*/, '')  // Remove opening markdown code block
+      .replace(/```\s*$/, '')     // Remove closing markdown code block
+      .replace(/`/g, '');         // Remove any backticks
       
-      // If parsing fails, extract what we can with regex
-      const brandMatch = responseText.match(/"brand":\s*"([^"]*)"/);
-      const modelMatch = responseText.match(/"model":\s*"([^"]*)"/);
+    // Log the cleaned response for debugging
+    console.log("Cleaned response:", cleanedResponse.substring(0, 200) + "...");
       
-      systemInfo = {
-        brand: brandMatch ? brandMatch[1] : "",
-        model: modelMatch ? modelMatch[1] : "",
-        systemType: "",
-        serialNumber: "",
-        manufacturingDate: "",
-        capacity: "",
-        efficiencyRating: "",
-        estimatedAge: ""
-      };
+    // Try to parse as JSON - look for what looks like a JSON object
+    const jsonMatch = cleanedResponse.match(/{[\s\S]*}/);
+    if (jsonMatch) {
+      systemInfo = JSON.parse(jsonMatch[0]);
+    } else {
+      throw new Error("No JSON object found in response");
     }
+  } catch (parseError) {
+    console.error("Error parsing image analysis JSON:", parseError);
+    console.log("Full response for debugging:", responseText);
+    
+    // If parsing fails, extract what we can with regex
+    const brandMatch = responseText.match(/"brand":\s*"([^"]*)"/);
+    const modelMatch = responseText.match(/"model":\s*"([^"]*)"/);
+    
+    systemInfo = {
+      brand: brandMatch ? brandMatch[1] : "",
+      model: modelMatch ? modelMatch[1] : "",
+      systemType: "",
+      serialNumber: "",
+      manufacturingDate: "",
+      capacity: "",
+      efficiencyRating: "",
+      estimatedAge: ""
+    };
+  }
     
     // Map any systemType values to match our application's types
     if (systemInfo.systemType) {
