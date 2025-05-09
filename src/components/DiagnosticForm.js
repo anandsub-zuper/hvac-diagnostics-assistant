@@ -198,169 +198,77 @@ const CameraIcon = styled.div`
   color: #aaa;
 `;
 
-// Completely redesigned CameraCapture component
+// Mobile-optimized camera component using file input - FIXED for back camera
 const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
   const [capturedImage, setCapturedImage] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStatus, setAnalysisStatus] = useState(null);
   const [detectedInfo, setDetectedInfo] = useState(null);
   const [cameraError, setCameraError] = useState(null);
-  const [cameraReady, setCameraReady] = useState(false);
   
-  // References
-  const videoElementRef = useRef(null);
-  const mediaStreamRef = useRef(null);
+  const fileInputRef = useRef(null);
   const canvasRef = useRef(null);
+  
+  // Detect if we're on iOS
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   
   const API_URL = process.env.REACT_APP_BACKEND_URL || 'https://hvac-diagnostics-api-f10ccd81443c.herokuapp.com';
 
-  // Initialize camera after component is fully mounted
-  useEffect(() => {
-    let isMounted = true;
-    
-    const initializeCamera = async () => {
-      // Wait for a moment to ensure the DOM is fully rendered
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // If component has unmounted during the timeout, abort
-      if (!isMounted) return;
-      
-      try {
-        // Verify browser support
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          throw new Error("Your browser doesn't support camera access");
-        }
-        
-        // Get the video element directly from the DOM
-        const videoElement = document.getElementById('camera-video-element');
-        if (!videoElement) {
-          throw new Error("Camera initialization failed - video element not found");
-        }
-        
-        // Store in ref
-        videoElementRef.current = videoElement;
-        
-        // Request camera access
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        mediaStreamRef.current = stream;
-        
-        // Attach stream to video element
-        videoElement.srcObject = stream;
-        
-        // Listen for when video is ready to play
-        videoElement.onloadedmetadata = () => {
-          if (!isMounted) return;
-          
-          videoElement.play()
-            .then(() => {
-              console.log("Camera started successfully");
-              setCameraReady(true);
-            })
-            .catch(err => {
-              console.error("Failed to play video:", err);
-              setCameraError("Failed to start camera playback");
-            });
-        };
-      } catch (err) {
-        console.error("Camera initialization error:", err);
-        if (isMounted) {
-          setCameraError(`Camera error: ${err.message}`);
-        }
-      }
-    };
-    
-    // Start initialization
-    initializeCamera();
-    
-    // Cleanup function
-    return () => {
-      isMounted = false;
-      
-      // Stop media tracks
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach(track => track.stop());
-      }
-      
-      // Clear video source
-      if (videoElementRef.current) {
-        videoElementRef.current.srcObject = null;
-      }
-    };
-  }, []);
-  
-  // Take photo function
-  const captureImage = () => {
-    if (!videoElementRef.current || !canvasRef.current) {
-      setCameraError("Cannot capture image - camera not ready");
+  // Handle file selection (from camera or gallery)
+  const handleFileSelect = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      setCameraError("No image was captured");
       return;
     }
     
     try {
-      const videoElement = videoElementRef.current;
-      const canvas = canvasRef.current;
+      // Read the selected file
+      const reader = new FileReader();
       
-      // Set canvas size to match video
-      canvas.width = videoElement.videoWidth || 640;
-      canvas.height = videoElement.videoHeight || 480;
+      reader.onload = (e) => {
+        const imageDataUrl = e.target?.result;
+        if (typeof imageDataUrl === 'string') {
+          setCapturedImage(imageDataUrl);
+          
+          // Pass image to parent if needed
+          if (onImageCaptured) {
+            onImageCaptured(imageDataUrl);
+          }
+        } else {
+          setCameraError("Unable to process the captured image");
+        }
+      };
       
-      // Draw video frame to canvas
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+      reader.onerror = () => {
+        setCameraError("Error reading the captured image");
+      };
       
-      // Convert to data URL
-      const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
-      setCapturedImage(imageDataUrl);
-      
-      // Stop camera
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach(track => track.stop());
-      }
-      
-      // Pass image to parent if needed
-      if (onImageCaptured) {
-        onImageCaptured(imageDataUrl);
-      }
+      reader.readAsDataURL(file);
     } catch (err) {
-      console.error("Error capturing image:", err);
-      setCameraError(`Failed to capture image: ${err.message}`);
+      console.error("Error processing image:", err);
+      setCameraError(`Error processing image: ${err.message}`);
     }
   };
   
-  // Retake photo
+  // Trigger camera/file picker
+  const takePicture = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+  
+  // Reset and retake
   const retakePhoto = () => {
     setCapturedImage(null);
     setAnalysisStatus(null);
     setDetectedInfo(null);
+    setCameraError(null);
     
-    // Reinitialize camera
-    if (videoElementRef.current) {
-      videoElementRef.current.srcObject = null;
+    // Clear the file input value so the same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
-    
-    setCameraReady(false);
-    
-    // Restart camera after a brief delay
-    setTimeout(async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        mediaStreamRef.current = stream;
-        
-        if (videoElementRef.current) {
-          videoElementRef.current.srcObject = stream;
-          videoElementRef.current.play()
-            .then(() => {
-              setCameraReady(true);
-            })
-            .catch(err => {
-              console.error("Failed to restart video:", err);
-              setCameraError("Failed to restart camera");
-            });
-        }
-      } catch (err) {
-        console.error("Error restarting camera:", err);
-        setCameraError(`Failed to restart camera: ${err.message}`);
-      }
-    }, 500);
   };
   
   // Analyze image
@@ -416,42 +324,45 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
   return (
     <CameraContainer>
       <FormDescription>
-        Position camera to clearly capture the model/serial number plate on your HVAC system
+        Take a photo of your system's data plate to automatically populate system information.
       </FormDescription>
       
       <div style={{ minHeight: '300px', position: 'relative' }}>
-        {/* IMPORTANT: We use a direct ID here instead of just a ref */}
-        {!capturedImage && (
-          <>
-            {/* Camera loading or error state */}
-            {(!cameraReady || cameraError) && (
-              <CameraPlaceholder>
-                <CameraIcon>{cameraError ? '🚫' : '📷'}</CameraIcon>
-                <p>{cameraError ? 'Camera not available' : 'Camera loading...'}</p>
-              </CameraPlaceholder>
-            )}
-            
-            {/* The video element - ALWAYS rendered with a specific ID */}
-            <VideoPreview 
-              id="camera-video-element"
-              autoPlay 
-              playsInline 
-              muted
-              style={{ 
-                display: cameraReady && !cameraError ? 'block' : 'none'
-              }}
-            />
-          </>
+        {/* 
+          IMPORTANT: Different approach based on platform
+          - For iOS: "accept" only but no "capture" attribute
+          - For others: Include both with "environment" for back camera
+        */}
+        {isIOS ? (
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileSelect}
+            style={{ display: 'none' }}
+          />
+        ) : (
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFileSelect}
+            style={{ display: 'none' }}
+          />
         )}
         
-        {/* Captured image */}
-        {capturedImage && (
+        {/* Camera interface or captured image */}
+        {!capturedImage ? (
+          <CameraPlaceholder onClick={takePicture}>
+            <CameraIcon>📷</CameraIcon>
+            <p>Tap to {isIOS ? "open camera" : "take a photo"}</p>
+            <small>{isIOS ? "Please select the back camera" : "Uses back camera"}</small>
+          </CameraPlaceholder>
+        ) : (
           <ImagePreview src={capturedImage} alt="Captured HVAC system" />
         )}
       </div>
-      
-      {/* Canvas for image capture */}
-      <canvas ref={canvasRef} style={{ display: 'none' }} />
       
       {/* Error message */}
       {cameraError && (
@@ -462,17 +373,14 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
       
       {/* Camera controls */}
       <ButtonContainer>
-        {!capturedImage && (
+        {!capturedImage ? (
           <Button 
             primary 
-            onClick={captureImage}
-            disabled={!cameraReady || !!cameraError}
+            onClick={takePicture}
           >
-            {!cameraReady ? 'Camera Loading...' : 'Take Photo'}
+            {isIOS ? "Open Camera" : "Take Photo"}
           </Button>
-        )}
-        
-        {capturedImage && (
+        ) : (
           <>
             <Button onClick={retakePhoto}>Retake Photo</Button>
             <Button 
@@ -507,7 +415,6 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
     </CameraContainer>
   );
 };
-
 // System type selection component
 const SystemTypeForm = ({ onSubmit }) => {
   const systemTypes = [
