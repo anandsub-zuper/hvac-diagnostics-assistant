@@ -832,18 +832,35 @@ const SystemTypeForm = ({ onSubmit }) => {
   );
 };
 
-// System information form
-const SystemInfoForm = ({ systemType, onSubmit, onBack }) => {
-  const [formData, setFormData] = useState({
-    brand: '',
-    model: '',
-    serialNumber: '',
-    age: '',
-    lastServiced: '',
-    location: '',
-    efficiencyRating: '',
-    additionalInfo: ''
+// This is just the updated SystemInfoForm component that needs to be modified
+// in your DiagnosticForm.js file
+
+const SystemInfoForm = ({ systemType, onSubmit, onBack, initialFormData = null }) => {
+  // Initialize form data from props if available, otherwise use empty object
+  const [formData, setFormData] = useState(() => {
+    // If initialFormData is provided, use it to initialize the form
+    if (initialFormData && Object.keys(initialFormData).length > 0) {
+      console.log("Initializing form with saved data:", initialFormData);
+      return { ...initialFormData };
+    }
+    
+    // Otherwise use default empty values
+    return {
+      brand: '',
+      model: '',
+      serialNumber: '',
+      age: '',
+      lastServiced: '',
+      location: '',
+      efficiencyRating: '',
+      additionalInfo: ''
+    };
   });
+  
+  // For debugging - log whenever formData changes
+  useEffect(() => {
+    console.log("SystemInfoForm formData updated:", formData);
+  }, [formData]);
   
   // For advanced fields toggle
   const [showAdvancedFields, setShowAdvancedFields] = useState(false);
@@ -864,6 +881,7 @@ const SystemInfoForm = ({ systemType, onSubmit, onBack }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    console.log("Submitting form data:", formData);
     onSubmit(formData);
   };
   
@@ -937,6 +955,9 @@ const SystemInfoForm = ({ systemType, onSubmit, onBack }) => {
     // Force immediate rerender by closing camera
     setShowCamera(false);
   };
+
+  // Rest of the component remains the same as before
+  // ...
 
   // Get fields based on system type
   const getSystemSpecificFields = () => {
