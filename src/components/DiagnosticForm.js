@@ -126,6 +126,78 @@ const ToggleContainer = styled.div`
   cursor: pointer;
 `;
 
+const RotateTip = styled.div`
+  background-color: rgba(52, 152, 219, 0.1);
+  padding: 10px;
+  border-radius: 4px;
+  margin-top: 10px;
+  font-size: 14px;
+  color: #2980b9;
+  display: flex;
+  align-items: center;
+`;
+
+const TipIcon = styled.span`
+  margin-right: 8px;
+  font-size: 18px;
+`;
+
+const ManualEntryButton = styled.button`
+  background-color: transparent;
+  color: #3498db;
+  border: none;
+  padding: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  text-decoration: underline;
+  margin-top: 10px;
+  
+  &:hover {
+    color: #2980b9;
+  }
+`;
+
+const ManualEntryForm = styled.div`
+  margin-top: 15px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  border: 1px solid #eee;
+`;
+
+const FormRow = styled.div`
+  display: flex;
+  gap: 15px;
+  margin-bottom: 15px;
+  
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: 10px;
+  }
+`;
+
+const Table = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  
+  th, td {
+    padding: 8px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+  }
+  
+  th {
+    font-weight: bold;
+    color: #2c3e50;
+  }
+`;
+
+const MissingInfo = styled.span`
+  color: #e74c3c;
+  font-style: italic;
+`;
+
 const ToggleButton = styled.span`
   display: flex;
   align-items: center;
@@ -197,14 +269,21 @@ const CameraIcon = styled.div`
   margin-bottom: 15px;
   color: #aaa;
 `;
-
-// Mobile-optimized camera component using file input - FIXED for back camera
 const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
   const [capturedImage, setCapturedImage] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStatus, setAnalysisStatus] = useState(null);
   const [detectedInfo, setDetectedInfo] = useState(null);
   const [cameraError, setCameraError] = useState(null);
+  // New state variables for enhanced features
+  const [showTips, setShowTips] = useState(false);
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [manualEntryData, setManualEntryData] = useState({
+    serialNumber: '',
+    age: '',
+    lastServiced: '',
+    tonnage: ''
+  });
   
   const fileInputRef = useRef(null);
   const canvasRef = useRef(null);
@@ -230,6 +309,7 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
         const imageDataUrl = e.target?.result;
         if (typeof imageDataUrl === 'string') {
           setCapturedImage(imageDataUrl);
+          setShowTips(true); // Show tips after image capture
           
           // Pass image to parent if needed
           if (onImageCaptured) {
@@ -264,6 +344,8 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
     setAnalysisStatus(null);
     setDetectedInfo(null);
     setCameraError(null);
+    setShowTips(false);
+    setShowManualEntry(false);
     
     // Clear the file input value so the same file can be selected again
     if (fileInputRef.current) {
@@ -297,15 +379,33 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
       });
       
       if (response.data && response.data.systemInfo) {
-        setDetectedInfo(response.data.systemInfo);
-        setAnalysisStatus({
-          type: 'success',
-          message: "System information successfully detected!"
-        });
+        const systemInfo = response.data.systemInfo;
+        setDetectedInfo(systemInfo);
         
-        // Pass to parent
-        if (onSystemInfoDetected) {
-          onSystemInfoDetected(response.data.systemInfo);
+        // Check for missing information
+        const missingFields = [];
+        if (!systemInfo.serialNumber) missingFields.push("serial number");
+        if (!systemInfo.age && !systemInfo.estimatedAge) missingFields.push("age");
+        if (!systemInfo.lastServiced) missingFields.push("service history");
+        if (!systemInfo.tonnage && !systemInfo.capacity) missingFields.push("system size");
+        
+        // Set appropriate status message
+        if (missingFields.length > 0) {
+          setAnalysisStatus({
+            type: 'warning',
+            message: `System detected but we couldn't identify: ${missingFields.join(", ")}. You can enter this manually.`
+          });
+          setShowManualEntry(true);
+        } else {
+          setAnalysisStatus({
+            type: 'success',
+            message: "System information successfully detected!"
+          });
+          
+          // Pass to parent immediately only if no missing information
+          if (onSystemInfoDetected) {
+            onSystemInfoDetected(systemInfo);
+          }
         }
       } else {
         throw new Error("Invalid response from image analysis");
@@ -316,15 +416,39 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
         type: 'error',
         message: "Failed to analyze image. Please try again or enter details manually."
       });
+      setShowManualEntry(true);
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+  
+  // Handle manual entry changes
+  const handleManualEntryChange = (e) => {
+    const { name, value } = e.target;
+    setManualEntryData({
+      ...manualEntryData,
+      [name]: value
+    });
+  };
+  
+  // Submit combined data (detected + manual)
+  const submitCombinedData = () => {
+    // Combine detected info with manual entry
+    const combinedInfo = {
+      ...(detectedInfo || {}),
+      ...manualEntryData
+    };
+    
+    // Pass to parent
+    if (onSystemInfoDetected) {
+      onSystemInfoDetected(combinedInfo);
     }
   };
 
   return (
     <CameraContainer>
       <FormDescription>
-        Take a photo of your system's data plate to automatically populate system information.
+        Take a clear photo of your system's data plate to automatically populate system information.
       </FormDescription>
       
       <div style={{ minHeight: '300px', position: 'relative' }}>
@@ -364,6 +488,17 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
         )}
       </div>
       
+      {/* Camera tips */}
+      {showTips && (
+        <RotateTip>
+          <TipIcon>💡</TipIcon>
+          <div>
+            <strong>Tip:</strong> For best results, make sure the data plate is well-lit and all text is clearly visible. 
+            Rotate your device if needed to get a better angle.
+          </div>
+        </RotateTip>
+      )}
+      
       {/* Error message */}
       {cameraError && (
         <StatusMessage error>
@@ -396,25 +531,174 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
       
       {/* Analysis status */}
       {analysisStatus && (
-        <StatusMessage success={analysisStatus.type === 'success'} error={analysisStatus.type === 'error'}>
+        <StatusMessage 
+          success={analysisStatus.type === 'success'} 
+          error={analysisStatus.type === 'error'}
+          warning={analysisStatus.type === 'warning'}
+        >
           {analysisStatus.message}
         </StatusMessage>
       )}
       
-      {/* Display detected info */}
+      {/* Display detected info with improved formatting */}
       {detectedInfo && (
         <DetectedInfo>
           <h4>Detected System Information:</h4>
-          <ul>
-            {Object.entries(detectedInfo).map(([key, value]) => (
-              value && <li key={key}><strong>{key}:</strong> {value}</li>
-            ))}
-          </ul>
+          <Table>
+            <tbody>
+              <tr>
+                <th>Brand:</th>
+                <td>{detectedInfo.brand || <MissingInfo>Not detected</MissingInfo>}</td>
+              </tr>
+              <tr>
+                <th>Model:</th>
+                <td>{detectedInfo.model || <MissingInfo>Not detected</MissingInfo>}</td>
+              </tr>
+              {detectedInfo.systemType && (
+                <tr>
+                  <th>System Type:</th>
+                  <td>{formatSystemType(detectedInfo.systemType)}</td>
+                </tr>
+              )}
+              <tr>
+                <th>Serial Number:</th>
+                <td>{detectedInfo.serialNumber || <MissingInfo>Not detected</MissingInfo>}</td>
+              </tr>
+              <tr>
+                <th>System Age:</th>
+                <td>{detectedInfo.age || detectedInfo.estimatedAge || <MissingInfo>Not detected</MissingInfo>}</td>
+              </tr>
+              <tr>
+                <th>System Size:</th>
+                <td>{detectedInfo.tonnage || detectedInfo.capacity || <MissingInfo>Not detected</MissingInfo>}</td>
+              </tr>
+              {detectedInfo.efficiencyRating && (
+                <tr>
+                  <th>Efficiency Rating:</th>
+                  <td>{detectedInfo.efficiencyRating}</td>
+                </tr>
+              )}
+            </tbody>
+          </Table>
+          
+          {!showManualEntry && (
+            <ManualEntryButton onClick={() => setShowManualEntry(true)}>
+              Add missing information manually
+            </ManualEntryButton>
+          )}
         </DetectedInfo>
+      )}
+      
+      {/* Manual entry form for missing information */}
+      {showManualEntry && (
+        <ManualEntryForm>
+          <h4>Add Missing Information</h4>
+          <p>Please provide any information that couldn't be detected automatically.</p>
+          
+          <FormRow>
+            {!detectedInfo?.serialNumber && (
+              <FormGroup>
+                <Label htmlFor="serialNumber">Serial Number</Label>
+                <Input 
+                  type="text" 
+                  id="serialNumber" 
+                  name="serialNumber" 
+                  value={manualEntryData.serialNumber} 
+                  onChange={handleManualEntryChange} 
+                  placeholder="Enter serial number"
+                />
+              </FormGroup>
+            )}
+            
+            {(!detectedInfo?.tonnage && !detectedInfo?.capacity) && (
+              <FormGroup>
+                <Label htmlFor="tonnage">System Size (Tons)</Label>
+                <Select 
+                  id="tonnage" 
+                  name="tonnage" 
+                  value={manualEntryData.tonnage} 
+                  onChange={handleManualEntryChange}
+                >
+                  <option value="">Select tonnage</option>
+                  <option value="1.5">1.5 Tons</option>
+                  <option value="2">2 Tons</option>
+                  <option value="2.5">2.5 Tons</option>
+                  <option value="3">3 Tons</option>
+                  <option value="3.5">3.5 Tons</option>
+                  <option value="4">4 Tons</option>
+                  <option value="5">5 Tons</option>
+                  <option value="unknown">Unknown</option>
+                </Select>
+              </FormGroup>
+            )}
+          </FormRow>
+          
+          <FormRow>
+            {(!detectedInfo?.age && !detectedInfo?.estimatedAge) && (
+              <FormGroup>
+                <Label htmlFor="age">System Age</Label>
+                <Select 
+                  id="age" 
+                  name="age" 
+                  value={manualEntryData.age} 
+                  onChange={handleManualEntryChange}
+                >
+                  <option value="">Select age range</option>
+                  <option value="0-5">0-5 years</option>
+                  <option value="6-10">6-10 years</option>
+                  <option value="11-15">11-15 years</option>
+                  <option value="16-20">16-20 years</option>
+                  <option value="20+">Over 20 years</option>
+                  <option value="unknown">Unknown</option>
+                </Select>
+              </FormGroup>
+            )}
+            
+            <FormGroup>
+              <Label htmlFor="lastServiced">Last Serviced</Label>
+              <Select 
+                id="lastServiced" 
+                name="lastServiced" 
+                value={manualEntryData.lastServiced} 
+                onChange={handleManualEntryChange}
+              >
+                <option value="">Select timeframe</option>
+                <option value="0-6">Within 6 months</option>
+                <option value="6-12">6-12 months ago</option>
+                <option value="1-2">1-2 years ago</option>
+                <option value="2+">Over 2 years ago</option>
+                <option value="never">Never</option>
+                <option value="unknown">Unknown</option>
+              </Select>
+            </FormGroup>
+          </FormRow>
+          
+          <Button primary onClick={submitCombinedData}>
+            Use This Information
+          </Button>
+        </ManualEntryForm>
       )}
     </CameraContainer>
   );
 };
+
+// Helper function to format system type for display
+function formatSystemType(type) {
+  if (!type) return "";
+  
+  const displayNames = {
+    "central-ac": "Central Air Conditioning",
+    "heat-pump": "Heat Pump",
+    "furnace": "Furnace",
+    "boiler": "Boiler",
+    "mini-split": "Mini-Split / Ductless",
+    "package-unit": "Package Unit"
+  };
+  
+  return displayNames[type] || type;
+}
+
+
 // System type selection component
 const SystemTypeForm = ({ onSubmit }) => {
   const systemTypes = [
