@@ -835,6 +835,9 @@ const SystemInfoForm = ({ systemType, onSubmit, onBack }) => {
   
   // For camera functionality
   const [showCamera, setShowCamera] = useState(false);
+  
+  // Add this new state to track when camera is opened for a new scan
+  const [isFreshScan, setIsFreshScan] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -849,45 +852,76 @@ const SystemInfoForm = ({ systemType, onSubmit, onBack }) => {
     onSubmit(formData);
   };
   
-const handleSystemInfoDetected = (detectedInfo) => {
-  console.log("FORM UPDATE START - Received data:", detectedInfo);
-  console.log("CRITICAL CHECK - Received serialNumber:", detectedInfo.serialNumber);
+  // Modified function to toggle camera and track fresh scans
+  const toggleCamera = () => {
+    // If opening the camera, mark as a fresh scan
+    if (!showCamera) {
+      setIsFreshScan(true);
+    }
+    setShowCamera(!showCamera);
+  };
   
-  // Create a new object explicitly without using spread operators
-  const updatedFormData = {};
-  
-  // Copy current form data first
-  Object.keys(formData).forEach(key => {
-    updatedFormData[key] = formData[key];
-  });
-  
-  // Now add the detected info, using explicit assignments
-  updatedFormData.brand = detectedInfo.brand || updatedFormData.brand || '';
-  updatedFormData.model = detectedInfo.model || updatedFormData.model || '';
-  updatedFormData.systemType = detectedInfo.systemType || updatedFormData.systemType || '';
-  
-  // CRITICAL FIX - Explicitly handle serial number with extra logging
-  console.log("BEFORE SETTING - formData.serialNumber:", formData.serialNumber);
-  console.log("BEFORE SETTING - detectedInfo.serialNumber:", detectedInfo.serialNumber);
-  
-  // Force the serial number value directly
-  updatedFormData.serialNumber = detectedInfo.serialNumber || updatedFormData.serialNumber || '';
-  
-  // Handle other fields
-  updatedFormData.age = detectedInfo.age || detectedInfo.estimatedAge || updatedFormData.age || '';
-  updatedFormData.tonnage = detectedInfo.tonnage || detectedInfo.capacity || updatedFormData.tonnage || '';
-  updatedFormData.efficiencyRating = detectedInfo.efficiencyRating || updatedFormData.efficiencyRating || '';
-  updatedFormData.lastServiced = detectedInfo.lastServiced || updatedFormData.lastServiced || '';
-  
-  console.log("AFTER MAPPING - new formData.serialNumber:", updatedFormData.serialNumber);
-  console.log("FORM UPDATE - Final mapped data:", updatedFormData);
-  
-  // Set form data with the new object
-  setFormData(updatedFormData);
-  
-  // Force immediate rerender by closing camera
-  setShowCamera(false);
-};
+  // Updated handleSystemInfoDetected to handle fresh scans correctly
+  const handleSystemInfoDetected = (detectedInfo) => {
+    console.log("FORM UPDATE START - Received data:", detectedInfo);
+    console.log("CRITICAL CHECK - Received serialNumber:", detectedInfo.serialNumber);
+    console.log("FRESH SCAN:", isFreshScan);
+    
+    // Create a new object explicitly without using spread operators
+    let updatedFormData = {};
+    
+    // If it's a fresh scan, don't copy existing form data
+    if (isFreshScan) {
+      // Start with empty values
+      updatedFormData = {
+        brand: '',
+        model: '',
+        serialNumber: '',
+        age: '',
+        lastServiced: '',
+        location: '',
+        efficiencyRating: '',
+        additionalInfo: ''
+      };
+      console.log("Fresh scan - starting with empty form data");
+    } else {
+      // For subsequent scans, preserve existing data
+      Object.keys(formData).forEach(key => {
+        updatedFormData[key] = formData[key];
+      });
+      console.log("Subsequent scan - preserving existing form data");
+    }
+    
+    // Now add the detected info, using explicit assignments
+    updatedFormData.brand = detectedInfo.brand || updatedFormData.brand || '';
+    updatedFormData.model = detectedInfo.model || updatedFormData.model || '';
+    updatedFormData.systemType = detectedInfo.systemType || updatedFormData.systemType || '';
+    
+    // CRITICAL FIX - Explicitly handle serial number with extra logging
+    console.log("BEFORE SETTING - formData.serialNumber:", updatedFormData.serialNumber);
+    console.log("BEFORE SETTING - detectedInfo.serialNumber:", detectedInfo.serialNumber);
+    
+    // Force the serial number value directly
+    updatedFormData.serialNumber = detectedInfo.serialNumber || updatedFormData.serialNumber || '';
+    
+    // Handle other fields
+    updatedFormData.age = detectedInfo.age || detectedInfo.estimatedAge || updatedFormData.age || '';
+    updatedFormData.tonnage = detectedInfo.tonnage || detectedInfo.capacity || updatedFormData.tonnage || '';
+    updatedFormData.efficiencyRating = detectedInfo.efficiencyRating || updatedFormData.efficiencyRating || '';
+    updatedFormData.lastServiced = detectedInfo.lastServiced || updatedFormData.lastServiced || '';
+    
+    console.log("AFTER MAPPING - new formData.serialNumber:", updatedFormData.serialNumber);
+    console.log("FORM UPDATE - Final mapped data:", updatedFormData);
+    
+    // Set form data with the new object
+    setFormData(updatedFormData);
+    
+    // Reset the fresh scan flag
+    setIsFreshScan(false);
+    
+    // Force immediate rerender by closing camera
+    setShowCamera(false);
+  };
 
   // Get fields based on system type
   const getSystemSpecificFields = () => {
@@ -943,7 +977,7 @@ const handleSystemInfoDetected = (detectedInfo) => {
     <FormContainer>
       <FormTitle>System Information</FormTitle>
       
-      {/* Quick Scan Option */}
+      {/* Quick Scan Option - Updated to use toggleCamera */}
       <QuickActionCard>
         <CardTitle>Quick System Scan</CardTitle>
         <CardDescription>
@@ -951,7 +985,7 @@ const handleSystemInfoDetected = (detectedInfo) => {
         </CardDescription>
         <Button 
           type="button" 
-          onClick={() => setShowCamera(!showCamera)}
+          onClick={toggleCamera}
         >
           {showCamera ? 'Hide Camera' : 'Scan System with Camera'}
         </Button>
@@ -1098,7 +1132,6 @@ const handleSystemInfoDetected = (detectedInfo) => {
     </FormContainer>
   );
 };
-
 // Symptoms form
 const SymptomsForm = ({ systemType, onSubmit, onBack }) => {
   const [symptomType, setSymptomType] = useState('');
