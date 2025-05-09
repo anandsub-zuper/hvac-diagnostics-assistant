@@ -45,7 +45,7 @@ app.get('/', (req, res) => {
   });
 });
 
-// Diagnostic endpoint
+// Diagnostic endpoint with improved response formatting
 app.post('/api/diagnose', async (req, res) => {
   try {
     // Check if OpenAI is configured
@@ -62,39 +62,422 @@ app.post('/api/diagnose', async (req, res) => {
       return res.status(400).json({ error: 'Symptoms are required' });
     }
 
-    // Construct a detailed prompt for the OpenAI model
-    const prompt = constructDiagnosticPrompt(systemType, systemInfo, symptoms);
-    
-    // Call OpenAI API
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo", // Using a faster model to reduce latency
-      messages: [
-        {
-          role: "system",
-          content: "You are an expert HVAC technician assistant. Your job is to diagnose HVAC issues based on the symptoms provided and suggest possible solutions. Provide step-by-step troubleshooting instructions that are clear and concise."
-        },
-        { role: "user", content: prompt }
-      ],
-      temperature: 0.2, // Lower temperature for more deterministic/factual responses
-      max_tokens: 800, // Reduced slightly to improve response time
-    });
+    console.log("Processing diagnosis request for:", systemType);
 
-    // Process the response
-    const diagnosisResult = processDiagnosisResult(completion.choices[0].message.content);
+    // Construct a clearer prompt that forces JSON output format
+    const prompt = constructBetterDiagnosticPrompt(systemType, systemInfo, symptoms);
     
-    // Add cost estimates to the result
-    diagnosisResult.costEstimates = generateRuleBasedCostEstimates(diagnosisResult);
-    
-    return res.json(diagnosisResult);
+    // First try with gpt-4 for better structured output
+    try {
+      // Call OpenAI API with a model more capable of structured output
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4-turbo-preview", // Try with a more capable model
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert HVAC technician who always responds in valid JSON format. You diagnose HVAC issues based on symptoms and provide structured troubleshooting steps in valid JSON only."
+          },
+          { role: "user", content: prompt }
+        ],
+        response_format: { type: "json_object" }, // Force JSON response format
+        temperature: 0.2,
+        max_tokens: 800,
+      });
+
+      // Process the response
+      const responseText = completion.choices[0].message.content;
+      console.log("Raw diagnosis response:", responseText);
+      
+      try {
+        // Parse the JSON response
+        const diagnosisResult = JSON.parse(responseText);
+        
+        // Validate the structure and add default values for missing fields
+        const validatedResult = validateAndFixDiagnosisResult(diagnosisResult);
+        
+        // Add cost estimates
+        validatedResult.costEstimates = generateRuleBasedCostEstimates(validatedResult);
+        validatedResult.source = 'ai';
+        
+        console.log("Diagnosis completed successfully");
+        return res.json(validatedResult);
+      } catch (parseError) {
+        throw new Error(`Failed to parse JSON response: ${parseError.message}`);
+      }
+    } catch (gptError) {
+      console.log("GPT-4 diagnosis failed, falling back to GPT-3.5:", gptError.message);
+      
+      // Fall back to GPT-3.5 with simplified prompt
+      const completion = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo", // Fallback to original model
+        messages: [
+          {
+            role: "system",
+            content: `You are an expert HVAC technician assistant. Your job is to diagnose HVAC issues based on symptoms and provide clear troubleshooting steps. ALWAYS reply with a valid JSON object containing primaryIssue, possibleIssues array, troubleshooting array, requiredItems array, repairComplexity, and additionalNotes.`
+          },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.2,
+        max_tokens: 800,
+      });
+
+      // Process the response with better error handling
+      const responseText = completion.choices[0].message.content;
+      console.log("GPT-3.5 raw diagnosis response:", responseText);
+      
+      const diagnosisResult = processDiagnosisResultImproved(responseText);
+      
+      // Add source and cost estimates
+      diagnosisResult.source = 'ai';
+      diagnosisResult.costEstimates = generateRuleBasedCostEstimates(diagnosisResult);
+      
+      return res.json(diagnosisResult);
+    }
   } catch (error) {
     console.error('Diagnostic error:', error);
+    
+    // Send a more helpful error response with a pre-populated template
     return res.status(500).json({ 
       error: 'An error occurred while processing the diagnosis',
-      details: error.message 
+      details: error.message,
+      primaryIssue: "Unable to determine due to processing error",
+      possibleIssues: [
+        {
+          issue: "System diagnosis unavailable",
+          severity: "Unknown",
+          description: "The service encountered an error while analyzing your system",
+          likelihood: 100
+        }
+      ],
+      troubleshooting: [
+        "Try again with a more detailed description of symptoms",
+        "Check your internet connection and try again",
+        "If the problem persists, consider using offline diagnosis mode"
+      ],
+      requiredItems: [],
+      repairComplexity: "Unknown",
+      additionalNotes: "The diagnostic service is experiencing technical difficulties. Please try again later.",
+      source: "error"
     });
   }
 });
 
+// Improved prompt constructor that forces JSON structure
+function constructBetterDiagnosticPrompt(systemType, systemInfo, symptoms) {
+  let prompt = `## HVAC Diagnostic Request\n\n`;
+  
+  // System classification
+  prompt += `### System Information\n`;
+  prompt += `- **Type:** ${systemType}\n`;
+  
+  // Add system info if available
+  if (systemInfo) {
+    if (systemInfo.brand) prompt += `- **Brand:** ${systemInfo.brand}\n`;
+    if (systemInfo.model) prompt += `- **Model:** ${systemInfo.model}\n`;
+    if (systemInfo.age) prompt += `- **Age:** ${systemInfo.age}\n`;
+    if (systemInfo.lastServiced) prompt += `- **Last Service:** ${systemInfo.lastServiced}\n`;
+    if (systemInfo.tonnage) prompt += `- **Tonnage:** ${systemInfo.tonnage}\n`;
+    if (systemInfo.fuelType) prompt += `- **Fuel Type:** ${systemInfo.fuelType}\n`;
+    if (systemInfo.additionalInfo) prompt += `- **Additional Notes:** ${systemInfo.additionalInfo}\n`;
+  }
+  
+  // Reported symptoms - this is crucial information
+  prompt += `\n### Reported Symptoms\n${symptoms}\n\n`;
+  
+  // Include seasonal context
+  const currentMonth = new Date().getMonth() + 1; // 1-12
+  const season = currentMonth >= 5 && currentMonth <= 9 ? 'summer/cooling' : 'winter/heating';
+  prompt += `### Seasonal Context\n- Current season: ${season} season\n\n`;
+  
+  // Clear diagnostic instructions with formatting guidance
+  prompt += `## Diagnostic Instructions
+
+Based on the system information and symptoms provided, please provide a detailed HVAC diagnosis.
+
+YOU MUST REPLY WITH A VALID JSON OBJECT in the following exact structure:
+{
+  "primaryIssue": "Brief statement of most likely cause",
+  "possibleIssues": [
+    {
+      "issue": "Issue name",
+      "severity": "Low/Medium/High",
+      "description": "Brief description",
+      "likelihood": 80
+    },
+    {
+      "issue": "Secondary issue name",
+      "severity": "Low/Medium/High",
+      "description": "Brief description",
+      "likelihood": 60
+    }
+  ],
+  "troubleshooting": [
+    "Step 1: Detailed instruction",
+    "Step 2: Detailed instruction"
+  ],
+  "requiredItems": [
+    "Item 1",
+    "Item 2"
+  ],
+  "repairComplexity": "Easy/Moderate/Complex",
+  "additionalNotes": "Important information",
+  "safetyWarnings": "Any critical safety considerations"
+}
+
+Your response MUST be a VALID JSON object with AT LEAST the following fields:
+- primaryIssue (string)
+- possibleIssues (array of objects)
+- troubleshooting (array of strings)
+- requiredItems (array of strings)
+- repairComplexity (string)
+- additionalNotes (string)
+
+Each possibleIssue MUST include:
+- issue (string)
+- severity (string - must be "Low", "Medium", or "High")
+- description (string)
+- likelihood (number between 1-100)
+
+For possibleIssues, include at least 2-3 potential causes. For troubleshooting, include at least 3-5 specific steps.`;
+
+  return prompt;
+}
+
+// New improved response processor
+function processDiagnosisResultImproved(content) {
+  try {
+    // First try standard JSON parsing
+    return JSON.parse(content);
+  } catch (error) {
+    console.error("JSON parsing error in diagnosis result:", error);
+    
+    // Try to extract JSON from a markdown code block
+    const jsonBlockMatch = content.match(/```(?:json)?\s*({[\s\S]*?})\s*```/);
+    if (jsonBlockMatch && jsonBlockMatch[1]) {
+      try {
+        return JSON.parse(jsonBlockMatch[1]);
+      } catch (blockError) {
+        console.error("Failed to parse JSON from code block:", blockError);
+      }
+    }
+    
+    // Try to extract any JSON-like object
+    const jsonObjectMatch = content.match(/{[\s\S]*?}/);
+    if (jsonObjectMatch) {
+      try {
+        // Clean up the matched text by removing common issues
+        const cleanedJson = jsonObjectMatch[0]
+          .replace(/(\w+):/g, '"$1":') // Add quotes to keys
+          .replace(/:\s*'([^']*)'/g, ': "$1"') // Replace single quotes with double quotes
+          .replace(/,\s*}/g, '}') // Remove trailing commas
+          .replace(/,\s*]/g, ']'); // Remove trailing commas in arrays
+          
+        return JSON.parse(cleanedJson);
+      } catch (objectError) {
+        console.error("Failed to parse extracted JSON-like object:", objectError);
+      }
+    }
+    
+    // As a last resort, use text-based extraction
+    return formatTextResponseBetter(content);
+  }
+}
+
+// Improved text response formatter
+function formatTextResponseBetter(text) {
+  // Default structure with empty fields
+  const sections = {
+    primaryIssue: "Could not determine primary issue",
+    possibleIssues: [],
+    troubleshooting: [],
+    requiredItems: [],
+    repairComplexity: "Unknown",
+    additionalNotes: "The diagnosis could not be properly formatted. Please try again with more detailed symptoms."
+  };
+  
+  // Check for primary issue
+  const primaryMatch = text.match(/(?:primary|main|likely)\s+(?:issue|problem|cause):?\s*([^\n.]+)/i);
+  if (primaryMatch && primaryMatch[1]) {
+    sections.primaryIssue = primaryMatch[1].trim();
+  }
+  
+  // Extract possible issues
+  let possibleIssues = [];
+  
+  // Look for structured issue lists with severity indicators
+  const issueBlockMatch = text.match(/possible issues:[\s\S]*?(?=\n\n|\ntroubl)/i);
+  if (issueBlockMatch) {
+    const issueBlock = issueBlockMatch[0];
+    const issueLines = issueBlock.split("\n").slice(1); // Skip the header
+    
+    issueLines.forEach(line => {
+      const lineText = line.trim();
+      if (!lineText) return;
+      
+      // Try to extract severity and description
+      const issueSeverityMatch = lineText.match(/^(?:[0-9]\.|\*|-|•)?\s*([^:]+)(?::|\s*-)\s*(?:\(([^\)]+)\))?\s*(.+)?$/);
+      if (issueSeverityMatch) {
+        const issueName = issueSeverityMatch[1]?.trim() || "Unknown issue";
+        let severity = "Medium"; // Default
+        let description = issueSeverityMatch[3]?.trim() || "";
+        
+        // Try to determine severity
+        if (issueSeverityMatch[2]) {
+          const sevText = issueSeverityMatch[2].toLowerCase();
+          if (sevText.includes("high") || sevText.includes("critical") || sevText.includes("severe")) {
+            severity = "High";
+          } else if (sevText.includes("low") || sevText.includes("minor")) {
+            severity = "Low";
+          }
+        } else if (description.toLowerCase().includes("serious") || description.toLowerCase().includes("immediate")) {
+          severity = "High";
+        } else if (description.toLowerCase().includes("minor") || description.toLowerCase().includes("simple")) {
+          severity = "Low";
+        }
+        
+        // Calculate a rough likelihood
+        let likelihood = 80;
+        if (possibleIssues.length > 0) {
+          likelihood = Math.max(30, 80 - (possibleIssues.length * 15));
+        }
+        
+        possibleIssues.push({
+          issue: issueName,
+          severity: severity,
+          description: description || `${issueName} may be causing the problem`,
+          likelihood: likelihood
+        });
+      } else if (lineText.length > 5 && !lineText.startsWith("=")) {
+        // Simple fallback for unstructured lines
+        possibleIssues.push({
+          issue: lineText,
+          severity: "Medium",
+          description: "",
+          likelihood: 50
+        });
+      }
+    });
+  }
+  
+  // If we couldn't find structured issues, try simpler patterns
+  if (possibleIssues.length === 0) {
+    // Look for lines with "issue", "problem", "malfunction" etc.
+    const simpleIssueMatches = text.match(/(?:issue|problem|malfunction|failure|fault)[^\n.]*?(?=\n|$)/gi);
+    if (simpleIssueMatches) {
+      simpleIssueMatches.forEach((match, index) => {
+        possibleIssues.push({
+          issue: match.trim(),
+          severity: "Medium", 
+          description: "",
+          likelihood: Math.max(30, 80 - (index * 20))
+        });
+      });
+    }
+  }
+  
+  sections.possibleIssues = possibleIssues;
+  
+  // Extract troubleshooting steps
+  const troubleMatch = text.match(/(?:troubleshooting|steps|how to fix|resolution)[^\n]*:?([\s\S]*?)(?=\n\n|required|repair complexity|repair difficulty|additional notes|safety|$)/i);
+  if (troubleMatch && troubleMatch[1]) {
+    const steps = troubleMatch[1].split(/\n/)
+      .map(step => step.trim())
+      .filter(step => step.length > 0 && !step.match(/^troubleshooting|^steps|^here's how|^how to/i))
+      .map(step => {
+        // Remove leading numbers, bullets, etc.
+        return step.replace(/^[0-9]+[\.\)]\s*|\-\s*|\*\s*|•\s*/, '');
+      });
+    sections.troubleshooting = steps;
+  }
+  
+  // Extract required tools/items
+  const toolsMatch = text.match(/(?:required|necessary|needed|tools|parts|equipment)[^\n]*:?([\s\S]*?)(?=\n\n|repair complexity|repair difficulty|additional|safety|$)/i);
+  if (toolsMatch && toolsMatch[1]) {
+    const items = toolsMatch[1].split(/\n/)
+      .map(item => item.trim())
+      .filter(item => item.length > 0 && !item.match(/^required|^tools|^parts|^items|^materials/i))
+      .map(item => {
+        // Remove leading bullets, etc.
+        return item.replace(/^[0-9]+[\.\)]\s*|\-\s*|\*\s*|•\s*/, '');
+      });
+    sections.requiredItems = items;
+  }
+  
+  // Determine repair complexity
+  if (text.match(/complex|difficult|professional|hvac technician required/i)) {
+    sections.repairComplexity = "Complex";
+  } else if (text.match(/moderate|intermediate|some experience|technical knowledge/i)) {
+    sections.repairComplexity = "Moderate";
+  } else if (text.match(/easy|simple|basic|diy/i)) {
+    sections.repairComplexity = "Easy";
+  }
+  
+  // Extract additional notes
+  const notesMatch = text.match(/(?:additional notes|note|important|caution)[^\n]*:?([\s\S]*?)(?=\n\n|safety|conclusion|$)/i);
+  if (notesMatch && notesMatch[1]) {
+    sections.additionalNotes = notesMatch[1].trim();
+  }
+  
+  // Extract safety warnings
+  const safetyMatch = text.match(/(?:safety|warning|caution|danger)[^\n]*:?([\s\S]*?)(?=\n\n|conclusion|$)/i);
+  if (safetyMatch && safetyMatch[1]) {
+    sections.safetyWarnings = safetyMatch[1].trim();
+  }
+  
+  return sections;
+}
+
+// Function to validate and fix the diagnosis result structure
+function validateAndFixDiagnosisResult(result) {
+  // Create a template with default values
+  const template = {
+    primaryIssue: "Unknown issue",
+    possibleIssues: [],
+    troubleshooting: [],
+    requiredItems: [],
+    repairComplexity: "Unknown",
+    additionalNotes: ""
+  };
+  
+  // Merge the result with the template
+  const validatedResult = { ...template, ...result };
+  
+  // Ensure possibleIssues is an array with required properties
+  if (!Array.isArray(validatedResult.possibleIssues)) {
+    validatedResult.possibleIssues = [];
+  }
+  
+  // Fix each possible issue
+  validatedResult.possibleIssues = validatedResult.possibleIssues.map(issue => {
+    // Create an issue template
+    const issueTemplate = {
+      issue: "Unknown issue",
+      severity: "Medium",
+      description: "",
+      likelihood: 50
+    };
+    
+    // Return the merged issue
+    return { ...issueTemplate, ...issue };
+  });
+  
+  // Ensure troubleshooting is an array
+  if (!Array.isArray(validatedResult.troubleshooting)) {
+    validatedResult.troubleshooting = [];
+  }
+  
+  // Ensure requiredItems is an array
+  if (!Array.isArray(validatedResult.requiredItems)) {
+    validatedResult.requiredItems = [];
+  }
+  
+  // Validate repairComplexity
+  if (!["Easy", "Moderate", "Complex", "Unknown"].includes(validatedResult.repairComplexity)) {
+    validatedResult.repairComplexity = "Unknown";
+  }
+  
+  return validatedResult;
+}
 // Enhanced image analysis endpoint
 app.post('/api/analyze-image', async (req, res) => {
   try {
