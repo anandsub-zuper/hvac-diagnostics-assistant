@@ -328,6 +328,27 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
   // API URL from environment or default
   const API_URL = process.env.REACT_APP_BACKEND_URL || 'https://hvac-diagnostics-api-f10ccd81443c.herokuapp.com';
 
+  // Add reset function to clear all state when starting a new capture
+  const resetCaptureState = () => {
+    setCapturedImage(null);
+    setAnalysisStatus(null);
+    setDetectedInfo(null);
+    setCameraError(null);
+    setShowTips(false);
+    setShowManualEntry(false);
+    setManualEntryData({
+      serialNumber: '',
+      age: '',
+      lastServiced: '',
+      tonnage: ''
+    });
+    
+    // Also clear file input if it exists
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   // Handle file selection (from camera or gallery)
   const handleFileSelect = (event) => {
     const file = event.target.files?.[0];
@@ -366,8 +387,12 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
     }
   };
   
-  // Trigger camera/file picker
+  // Update takePicture to first reset state
   const takePicture = () => {
+    // Clear all previous data first
+    resetCaptureState();
+    
+    // Then trigger the file input
     if (fileInputRef.current) {
       fileInputRef.current.click();
     }
@@ -375,17 +400,7 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
   
   // Reset and retake
   const retakePhoto = () => {
-    setCapturedImage(null);
-    setAnalysisStatus(null);
-    setDetectedInfo(null);
-    setCameraError(null);
-    setShowTips(false);
-    setShowManualEntry(false);
-    
-    // Clear the file input value so the same file can be selected again
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    resetCaptureState();
   };
   
   // Analyze image - Enhanced version
@@ -481,62 +496,62 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
     });
   };
   
-// Submit combined data (detected + manual) - FIXED VERSION
-const submitCombinedData = () => {
-  // Log the detected info BEFORE mapping
-  console.log("PRE-MAPPING CHECK - serialNumber value:", detectedInfo?.serialNumber);
-  console.log("PRE-MAPPING CHECK - Full detected info:", detectedInfo);
-  
-  // IMPORTANT: Create a new object first, NOT using spread operator which might lose properties
-  const combinedInfo = {};
-  
-  // First, copy specific fields from detected info
-  if (detectedInfo) {
-    combinedInfo.brand = detectedInfo.brand || '';
-    combinedInfo.model = detectedInfo.model || '';
-    combinedInfo.systemType = detectedInfo.systemType || '';
+  // Submit combined data (detected + manual) - FIXED VERSION
+  const submitCombinedData = () => {
+    // Log the detected info BEFORE mapping
+    console.log("PRE-MAPPING CHECK - serialNumber value:", detectedInfo?.serialNumber);
+    console.log("PRE-MAPPING CHECK - Full detected info:", detectedInfo);
     
-    // CRITICAL FIX: Explicitly assign the serial number
-    combinedInfo.serialNumber = detectedInfo.serialNumber || '';
+    // IMPORTANT: Create a new object first, NOT using spread operator which might lose properties
+    const combinedInfo = {};
     
-    combinedInfo.age = detectedInfo.age || detectedInfo.estimatedAge || '';
-    combinedInfo.tonnage = detectedInfo.tonnage || detectedInfo.capacity || '';
-    combinedInfo.efficiencyRating = detectedInfo.efficiencyRating || '';
-    combinedInfo.lastServiced = detectedInfo.lastServiced || '';
-  }
-  
-  // Then apply any manual entries that have values
-  if (manualEntryData.serialNumber) {
-    combinedInfo.serialNumber = manualEntryData.serialNumber;
-  }
-  
-  if (manualEntryData.tonnage) {
-    combinedInfo.tonnage = manualEntryData.tonnage;
-  }
-  
-  if (manualEntryData.age) {
-    combinedInfo.age = manualEntryData.age;
-  }
-  
-  if (manualEntryData.lastServiced) {
-    combinedInfo.lastServiced = manualEntryData.lastServiced;
-  }
-  
-  // Log the FINAL data with specific focus on the serial number
-  console.log("FINAL MAPPING CHECK - serialNumber:", combinedInfo.serialNumber);
-  console.log("DATA TRANSFER: Submitting to form:", combinedInfo);
-  
-  // Pass to parent
-  if (onSystemInfoDetected) {
-    // Wrap in try/catch to catch any errors
-    try {
-      onSystemInfoDetected(combinedInfo);
-    } catch (err) {
-      console.error("Error in onSystemInfoDetected callback:", err);
-      alert("Error transferring data: " + err.message);
+    // First, copy specific fields from detected info
+    if (detectedInfo) {
+      combinedInfo.brand = detectedInfo.brand || '';
+      combinedInfo.model = detectedInfo.model || '';
+      combinedInfo.systemType = detectedInfo.systemType || '';
+      
+      // CRITICAL FIX: Explicitly assign the serial number
+      combinedInfo.serialNumber = detectedInfo.serialNumber || '';
+      
+      combinedInfo.age = detectedInfo.age || detectedInfo.estimatedAge || '';
+      combinedInfo.tonnage = detectedInfo.tonnage || detectedInfo.capacity || '';
+      combinedInfo.efficiencyRating = detectedInfo.efficiencyRating || '';
+      combinedInfo.lastServiced = detectedInfo.lastServiced || '';
     }
-  }
-};
+    
+    // Then apply any manual entries that have values
+    if (manualEntryData.serialNumber) {
+      combinedInfo.serialNumber = manualEntryData.serialNumber;
+    }
+    
+    if (manualEntryData.tonnage) {
+      combinedInfo.tonnage = manualEntryData.tonnage;
+    }
+    
+    if (manualEntryData.age) {
+      combinedInfo.age = manualEntryData.age;
+    }
+    
+    if (manualEntryData.lastServiced) {
+      combinedInfo.lastServiced = manualEntryData.lastServiced;
+    }
+    
+    // Log the FINAL data with specific focus on the serial number
+    console.log("FINAL MAPPING CHECK - serialNumber:", combinedInfo.serialNumber);
+    console.log("DATA TRANSFER: Submitting to form:", combinedInfo);
+    
+    // Pass to parent
+    if (onSystemInfoDetected) {
+      // Wrap in try/catch to catch any errors
+      try {
+        onSystemInfoDetected(combinedInfo);
+      } catch (err) {
+        console.error("Error in onSystemInfoDetected callback:", err);
+        alert("Error transferring data: " + err.message);
+      }
+    }
+  };
 
   return (
     <CameraContainer>
