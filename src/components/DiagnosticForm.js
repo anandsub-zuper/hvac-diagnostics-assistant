@@ -148,6 +148,9 @@ const VideoPreview = styled.video`
   max-width: 500px;
   border: 1px solid #ddd;
   border-radius: 8px;
+  background-color: #f0f0f0;
+  min-height: 300px; /* Ensure there's space for the video */
+  object-fit: cover;
 `;
 
 const ImagePreview = styled.img`
@@ -173,71 +176,175 @@ const DetectedInfo = styled.div`
   border-radius: 4px;
 `;
 
-// Camera capture component
+const CameraPlaceholder = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 500px;
+  height: 300px;
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  color: #666;
+  text-align: center;
+  padding: 20px;
+`;
+
+const CameraIcon = styled.div`
+  font-size: 48px;
+  margin-bottom: 15px;
+  color: #aaa;
+`;
+
+// Camera capture component - UPDATED with fixes
 const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
   const [stream, setStream] = useState(null);
   const [capturedImage, setCapturedImage] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStatus, setAnalysisStatus] = useState(null);
   const [detectedInfo, setDetectedInfo] = useState(null);
+  const [cameraError, setCameraError] = useState(null);
+  const [cameraLoading, setCameraLoading] = useState(true);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const API_URL = process.env.REACT_APP_BACKEND_URL || 'https://hvac-diagnostics-api-f10ccd81443c.herokuapp.com';
 
+  // IMPROVED: Start camera with better error handling and debugging
   const startCamera = async () => {
+    console.log("Attempting to access camera...");
+    setCameraLoading(true);
+    setCameraError(null);
+    
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "environment" } // Use back camera if available
-      });
-      setStream(mediaStream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
+      // Check if mediaDevices is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Camera API not supported in this browser");
       }
+      
+      console.log("Requesting camera permissions...");
+      const constraints = { 
+        video: { 
+          facingMode: "environment", // Use back camera if available
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
+      };
+      
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log("Camera access granted!", mediaStream);
+      
+      if (mediaStream.getVideoTracks().length === 0) {
+        throw new Error("No video tracks found in media stream");
+      }
+      
+      console.log("Video tracks:", mediaStream.getVideoTracks());
+      setStream(mediaStream);
+      
+      // Explicitly check and set video source
+      if (videoRef.current) {
+        console.log("Setting video source...");
+        videoRef.current.srcObject = mediaStream;
+        
+        // Force the video to play
+        const playPromise = videoRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => console.log("Video playback started successfully"))
+            .catch(err => {
+              console.error("Error playing video:", err);
+              setCameraError(`Error playing video: ${err.message}`);
+            });
+        }
+      } else {
+        console.error("Video element reference is null");
+        throw new Error("Video element not found");
+      }
+      
+      setCameraLoading(false);
     } catch (err) {
       console.error("Error accessing camera:", err);
-      setAnalysisStatus({
-        type: 'error',
-        message: "Camera access denied or not available. Please ensure camera permissions are granted."
-      });
+      setCameraError(`Camera error: ${err.message}. Please check camera permissions and try again.`);
+      setCameraLoading(false);
     }
   };
 
   const stopCamera = () => {
+    console.log("Stopping camera...");
     if (stream) {
-      stream.getTracks().forEach(track => track.stop());
+      console.log("Stopping tracks...");
+      stream.getTracks().forEach(track => {
+        console.log(`Stopping track: ${track.kind}`);
+        track.stop();
+      });
       setStream(null);
+      
+      // Also clear video source
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
     }
   };
 
   const captureImage = () => {
+    console.log("Capturing image...");
     if (videoRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
       const video = videoRef.current;
       
       // Set canvas dimensions to match video
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      console.log(`Video dimensions: ${video.videoWidth}x${video.videoHeight}`);
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      
+      if (canvas.width === 0 || canvas.height === 0) {
+        console.error("Invalid canvas dimensions");
+        setCameraError("Unable to capture image - video dimensions not available");
+        return;
+      }
       
       // Draw video frame to canvas
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
-      // Convert to data URL
-      const imageDataUrl = canvas.toDataURL('image/jpeg');
-      setCapturedImage(imageDataUrl);
-      
-      // Stop camera after capturing
-      stopCamera();
-      
-      // Pass image data to parent component if needed
-      if (onImageCaptured) {
-        onImageCaptured(imageDataUrl);
+      try {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // Convert to data URL
+        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        console.log("Image captured successfully", imageDataUrl.substring(0, 50) + "...");
+        setCapturedImage(imageDataUrl);
+        
+        // Stop camera after capturing
+        stopCamera();
+        
+        // Pass image data to parent component if needed
+        if (onImageCaptured) {
+          onImageCaptured(imageDataUrl);
+        }
+      } catch (err) {
+        console.error("Error capturing image:", err);
+        setCameraError(`Error capturing image: ${err.message}`);
       }
+    } else {
+      console.error("Video or canvas element not available");
+      setCameraError("Video or canvas element not available");
     }
   };
 
+  // Reset camera UI states
+  const resetCamera = () => {
+    setCapturedImage(null);
+    setDetectedInfo(null);
+    setAnalysisStatus(null);
+    setCameraError(null);
+    startCamera();
+  };
+
   const analyzeImage = async () => {
-    if (!capturedImage) return;
+    if (!capturedImage) {
+      setCameraError("No image captured to analyze");
+      return;
+    }
     
     setIsAnalyzing(true);
     setAnalysisStatus({
@@ -246,23 +353,25 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
     });
     
     try {
-      // Convert data URL to Blob
-      const response = await fetch(capturedImage);
-      const blob = await response.blob();
+      console.log("Sending image for analysis...");
       
-      // Create form data
-      const formData = new FormData();
-      formData.append('image', blob, 'hvac-system.jpg');
+      // Extract base64 data
+      const base64Data = capturedImage.split(',')[1];
+      if (!base64Data) {
+        throw new Error("Invalid image format");
+      }
       
       // Send to backend for analysis
       const analysisResponse = await axios.post(`${API_URL}/api/analyze-image`, {
-        image: capturedImage.split(',')[1] // Send base64 data without the prefix
+        image: base64Data
       }, {
         headers: {
           'Content-Type': 'application/json'
         },
         timeout: 25000 // 25 second timeout
       });
+      
+      console.log("Analysis response:", analysisResponse.data);
       
       if (analysisResponse.data && analysisResponse.data.systemInfo) {
         setDetectedInfo(analysisResponse.data.systemInfo);
@@ -292,18 +401,29 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
   };
 
   const retakePhoto = () => {
-    setCapturedImage(null);
-    setDetectedInfo(null);
-    setAnalysisStatus(null);
-    startCamera();
+    resetCamera();
+  };
+
+  // VIDEO ELEMENT EVENT HANDLERS
+  const handleCanPlay = () => {
+    console.log("Video can play now");
+    setCameraLoading(false);
+  };
+  
+  const handleVideoError = (e) => {
+    console.error("Video element error:", e);
+    setCameraError(`Video error: ${e.target.error ? e.target.error.message : "Unknown error"}`);
+    setCameraLoading(false);
   };
 
   // Start camera when component mounts
   useEffect(() => {
+    console.log("CameraCapture component mounted");
     startCamera();
     
     // Clean up when component unmounts
     return () => {
+      console.log("CameraCapture component unmounting");
       stopCamera();
     };
   }, []);
@@ -314,19 +434,57 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
         Position camera to clearly capture the model/serial number plate on your HVAC system
       </FormDescription>
       
-      {!capturedImage && stream && (
-        <VideoPreview ref={videoRef} autoPlay muted playsInline />
+      {/* Camera View */}
+      {!capturedImage && (
+        cameraLoading ? (
+          <CameraPlaceholder>
+            <CameraIcon>📷</CameraIcon>
+            <p>Camera loading...</p>
+          </CameraPlaceholder>
+        ) : (
+          stream ? (
+            <VideoPreview 
+              ref={videoRef} 
+              autoPlay 
+              playsInline 
+              muted
+              onCanPlay={handleCanPlay}
+              onError={handleVideoError}
+            />
+          ) : (
+            <CameraPlaceholder>
+              <CameraIcon>🚫</CameraIcon>
+              <p>Camera not available</p>
+            </CameraPlaceholder>
+          )
+        )
       )}
       
+      {/* Display captured image */}
       {capturedImage && (
         <ImagePreview src={capturedImage} alt="Captured HVAC system" />
       )}
       
+      {/* Hidden canvas for capturing */}
       <canvas ref={canvasRef} style={{ display: 'none' }} />
       
+      {/* Camera error message */}
+      {cameraError && (
+        <StatusMessage error>
+          {cameraError}
+        </StatusMessage>
+      )}
+      
+      {/* Camera control buttons */}
       <ButtonContainer>
-        {!capturedImage && stream && (
-          <Button primary onClick={captureImage}>Take Photo</Button>
+        {!capturedImage && (
+          <Button 
+            primary 
+            onClick={captureImage}
+            disabled={!stream || cameraLoading}
+          >
+            Take Photo
+          </Button>
         )}
         
         {capturedImage && (
@@ -343,12 +501,14 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
         )}
       </ButtonContainer>
       
+      {/* Analysis status */}
       {analysisStatus && (
         <StatusMessage success={analysisStatus.type === 'success'} error={analysisStatus.type === 'error'}>
           {analysisStatus.message}
         </StatusMessage>
       )}
       
+      {/* Display detected info */}
       {detectedInfo && (
         <DetectedInfo>
           <h4>Detected System Information:</h4>
