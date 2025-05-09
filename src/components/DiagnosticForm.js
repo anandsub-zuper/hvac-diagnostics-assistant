@@ -178,6 +178,39 @@ const SystemInfoForm = ({ systemType, onSubmit, onBack }) => {
         
       default:
         return null;
+  // In SystemInfoForm component in DiagnosticForm.js
+
+// Add import
+import CameraCapture from './CameraCapture';
+
+// Add to state
+const [showCamera, setShowCamera] = useState(false);
+
+// Add handler for detected system info
+const handleSystemInfoDetected = (detectedInfo) => {
+  // Update form with detected information
+  setFormData({
+    ...formData,
+    ...detectedInfo
+  });
+  
+  setShowCamera(false); // Hide camera after successful detection
+};
+
+// Add this button to your form
+<Button 
+  type="button" 
+  onClick={() => setShowCamera(!showCamera)}
+>
+  {showCamera ? 'Hide Camera' : 'Scan System with Camera'}
+</Button>
+
+// Add camera component when shown
+{showCamera && (
+  <CameraCapture 
+    onSystemInfoDetected={handleSystemInfoDetected}
+  />
+)}
     }
   };
 
