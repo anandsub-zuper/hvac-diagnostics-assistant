@@ -834,27 +834,72 @@ const SystemInfoForm = ({ systemType, onSubmit, onBack }) => {
   
   // IMPROVED: Better data mapping from camera detection to form
 const handleSystemInfoDetected = (detectedInfo) => {
-  console.log("EMERGENCY FIX - Raw data:", JSON.stringify(detectedInfo));
+  // FORCE LOG TO CONSOLE
+  alert("Data received from camera: " + JSON.stringify(detectedInfo)); 
+  console.log("EMERGENCY DEBUG - Data received:", detectedInfo);
   
-  // DIRECT APPROACH: Explicitly set each field individually
+  // Directly update the form data with most basic approach possible
   const newData = {};
-  newData.brand = detectedInfo.brand || '';
-  newData.model = detectedInfo.model || '';
-  newData.systemType = detectedInfo.systemType || '';
-  newData.serialNumber = detectedInfo.serialNumber || '';
-  newData.age = detectedInfo.age || detectedInfo.estimatedAge || '';
-  newData.tonnage = detectedInfo.tonnage || detectedInfo.capacity || '';
-  newData.efficiencyRating = detectedInfo.efficiencyRating || '';
-  newData.lastServiced = detectedInfo.lastServiced || '';
-  newData.location = '';
-  newData.additionalInfo = '';
   
-  console.log("EMERGENCY FIX - Mapped data:", JSON.stringify(newData));
+  // Copy all existing form data first
+  Object.keys(formData).forEach(key => {
+    newData[key] = formData[key];
+  });
   
-  // Set state directly with the new object
+  // Then explicitly overwrite with detected values
+  if (detectedInfo.brand) newData.brand = detectedInfo.brand;
+  if (detectedInfo.model) newData.model = detectedInfo.model;
+  if (detectedInfo.serialNumber) newData.serialNumber = detectedInfo.serialNumber;
+  
+  // Special handling for age/estimatedAge
+  if (detectedInfo.age) {
+    newData.age = detectedInfo.age;
+  } else if (detectedInfo.estimatedAge) {
+    newData.age = detectedInfo.estimatedAge;
+  }
+  
+  // Special handling for tonnage/capacity
+  if (detectedInfo.tonnage) {
+    newData.tonnage = detectedInfo.tonnage;
+  } else if (detectedInfo.capacity) {
+    newData.tonnage = detectedInfo.capacity;
+  }
+  
+  if (detectedInfo.efficiencyRating) newData.efficiencyRating = detectedInfo.efficiencyRating;
+  if (detectedInfo.lastServiced) newData.lastServiced = detectedInfo.lastServiced;
+  
+  // FORCE LOG TO CONSOLE AGAIN
+  alert("Updated form data: " + JSON.stringify(newData));
+  console.log("EMERGENCY DEBUG - Updated form data:", newData);
+  
+  // Set form data
   setFormData(newData);
   
-  // Force a form re-render by closing the camera
+  // Try direct DOM manipulation as well (belt and suspenders approach)
+  setTimeout(() => {
+    try {
+      // Direct DOM manipulation as a fallback
+      const brandInput = document.querySelector('input[name="brand"]');
+      if (brandInput && detectedInfo.brand) brandInput.value = detectedInfo.brand;
+      
+      const modelInput = document.querySelector('input[name="model"]');
+      if (modelInput && detectedInfo.model) modelInput.value = detectedInfo.model;
+      
+      const serialInput = document.querySelector('input[name="serialNumber"]');
+      if (serialInput && detectedInfo.serialNumber) serialInput.value = detectedInfo.serialNumber;
+      
+      // Force React to recognize the DOM changes
+      if (brandInput) brandInput.dispatchEvent(new Event('change', { bubbles: true }));
+      if (modelInput) modelInput.dispatchEvent(new Event('change', { bubbles: true }));
+      if (serialInput) serialInput.dispatchEvent(new Event('change', { bubbles: true }));
+      
+      console.log("EMERGENCY DEBUG - Tried direct DOM manipulation");
+    } catch (err) {
+      console.log("EMERGENCY DEBUG - DOM manipulation error:", err);
+    }
+  }, 100);
+  
+  // Close camera view
   setShowCamera(false);
 };
 
