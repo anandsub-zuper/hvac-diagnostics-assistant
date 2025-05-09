@@ -271,6 +271,39 @@ const MissingInfo = styled.span`
   font-style: italic;
 `;
 
+// Helper function to try to extract serial number from raw analysis text
+function extractSerialNumberClientSide(text, brand) {
+  if (!text) return "";
+  
+  // Try to find explicit mentions of serial number
+  const explicitPatterns = [
+    /serial\s*(?:number|no|#)?\s*(?:is|:)?\s*[\"']?([A-Z0-9]{5,20})[\"']?/i,
+    /S\/N\s*[:.]?\s*([A-Z0-9]{5,20})/i,
+    /SN\s*[:.]?\s*([A-Z0-9]{5,20})/i
+  ];
+  
+  for (const pattern of explicitPatterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) return match[1].trim();
+  }
+  
+  // If we have a Lennox unit, try Lennox-specific patterns
+  if (brand && brand.toLowerCase().includes("lennox")) {
+    const lennoxPatterns = [
+      /\b(5[0-9]{9,13})\b/i,                  // Often starts with 5
+      /\b([0-9]{10,14})\b/i,                  // Basic 10-14 digit format
+      /\b([0-9]{3}[A-Z][0-9]{6,10})\b/i       // Sometimes has a letter in 4th position
+    ];
+    
+    for (const pattern of lennoxPatterns) {
+      const match = text.match(pattern);
+      if (match && match[1]) return match[1].trim();
+    }
+  }
+  
+  return "";
+}
+
 // Enhanced CameraCapture component with better data transfer
 const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
   const [capturedImage, setCapturedImage] = useState(null);
@@ -355,7 +388,7 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
     }
   };
   
-  // Analyze image
+  // Analyze image - Enhanced version
   const analyzeImage = async () => {
     if (!capturedImage) {
       setCameraError("No image to analyze");
@@ -382,6 +415,21 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
       
       if (response.data && response.data.systemInfo) {
         const systemInfo = response.data.systemInfo;
+        
+        // Try to enhance the serial number detection using the raw analysis text
+        if ((!systemInfo.serialNumber || systemInfo.serialNumber === "") && response.data.rawAnalysis) {
+          // Look for serial number in the raw text from the AI
+          const extractedSerialNumber = extractSerialNumberClientSide(
+            response.data.rawAnalysis, 
+            systemInfo.brand
+          );
+          
+          if (extractedSerialNumber && extractedSerialNumber.length > 4) {
+            console.log("Enhanced serial number detection:", extractedSerialNumber);
+            systemInfo.serialNumber = extractedSerialNumber;
+          }
+        }
+        
         setDetectedInfo(systemInfo);
         
         // Check for missing information
@@ -433,8 +481,11 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
     });
   };
   
-  // Submit combined data (detected + manual) - FIXED VERSION
+  // Submit combined data (detected + manual) - ENHANCED VERSION
   const submitCombinedData = () => {
+    // Add detailed logging to diagnose serial number issue
+    console.log("DATA TRANSFER DEBUG - Full detected info:", detectedInfo);
+    
     // Create a properly mapped combined info object with ALL fields
     const combinedInfo = {
       // Include all detected info
@@ -444,6 +495,8 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
       brand: detectedInfo?.brand || '',
       model: detectedInfo?.model || '',
       systemType: detectedInfo?.systemType || '',
+      
+      // IMPORTANT: Explicitly map serial number with extra logging
       serialNumber: detectedInfo?.serialNumber || '',
       
       // FIX: Map age and estimatedAge
@@ -458,7 +511,8 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
       ...(manualEntryData || {})
     };
     
-    // Log what we're sending to the parent form
+    // Double-check we have serial number in FINAL object
+    console.log("DATA TRANSFER: Final serialNumber value:", combinedInfo.serialNumber);
     console.log("DATA TRANSFER: Submitting to form:", combinedInfo);
     
     // Pass to parent
@@ -783,6 +837,9 @@ const SystemInfoForm = ({ systemType, onSubmit, onBack }) => {
     console.log("FORM UPDATE: System info detected from image:", detectedInfo);
     console.log("FORM UPDATE: Previous form state:", formData);
     
+    // Debug the serial number specifically
+    console.log("SERIAL NUMBER DEBUG - Received value:", detectedInfo.serialNumber);
+    
     // Create a properly mapped update with all fields
     const updatedFormData = {
       ...formData,
@@ -791,6 +848,8 @@ const SystemInfoForm = ({ systemType, onSubmit, onBack }) => {
       brand: detectedInfo.brand || formData.brand,
       model: detectedInfo.model || formData.model,
       systemType: detectedInfo.systemType || formData.systemType,
+      
+      // IMPORTANT: Force serialNumber mapping with extra debug
       serialNumber: detectedInfo.serialNumber || formData.serialNumber,
       
       // FIX: Map estimatedAge to age field when age is empty
@@ -807,6 +866,7 @@ const SystemInfoForm = ({ systemType, onSubmit, onBack }) => {
     };
     
     console.log("FORM UPDATE: Updated form data:", updatedFormData);
+    console.log("FORM UPDATE: Final serialNumber value:", updatedFormData.serialNumber);
     
     // Update the state
     setFormData(updatedFormData);
