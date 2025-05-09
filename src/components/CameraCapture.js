@@ -151,6 +151,34 @@ const CameraCapture = ({ onImageCaptured, onSystemInfoDetected }) => {
     };
   }, []);
 
+  const StatusMessage = styled.div`
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 4px;
+  background-color: ${props => props.success ? '#d4edda' : '#f8d7da'};
+  color: ${props => props.success ? '#155724' : '#721c24'};
+`;
+
+// Add this to the component
+{isAnalyzing && (
+  <StatusMessage>
+    <LoadingSpinner size="small" />
+    Analyzing image... This may take a few seconds
+  </StatusMessage>
+)}
+
+// Add this to CameraCapture.js after analysis is complete
+{detectedInfo && (
+  <div>
+    <h4>Detected System Information:</h4>
+    <ul>
+      {Object.entries(detectedInfo).map(([key, value]) => (
+        value && <li key={key}><strong>{key}:</strong> {value}</li>
+      ))}
+    </ul>
+  </div>
+)}
+
   return (
     <CameraContainer>
       <h3>Take a Photo of the HVAC System</h3>
