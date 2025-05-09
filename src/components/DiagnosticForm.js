@@ -849,74 +849,43 @@ const SystemInfoForm = ({ systemType, onSubmit, onBack }) => {
     onSubmit(formData);
   };
   
-  // IMPROVED: Better data mapping from camera detection to form
 const handleSystemInfoDetected = (detectedInfo) => {
-  // FORCE LOG TO CONSOLE
-  alert("Data received from camera: " + JSON.stringify(detectedInfo)); 
-  console.log("EMERGENCY DEBUG - Data received:", detectedInfo);
+  console.log("FORM UPDATE START - Received data:", detectedInfo);
+  console.log("CRITICAL CHECK - Received serialNumber:", detectedInfo.serialNumber);
   
-  // Directly update the form data with most basic approach possible
-  const newData = {};
+  // Create a new object explicitly without using spread operators
+  const updatedFormData = {};
   
-  // Copy all existing form data first
+  // Copy current form data first
   Object.keys(formData).forEach(key => {
-    newData[key] = formData[key];
+    updatedFormData[key] = formData[key];
   });
   
-  // Then explicitly overwrite with detected values
-  if (detectedInfo.brand) newData.brand = detectedInfo.brand;
-  if (detectedInfo.model) newData.model = detectedInfo.model;
-  if (detectedInfo.serialNumber) newData.serialNumber = detectedInfo.serialNumber;
+  // Now add the detected info, using explicit assignments
+  updatedFormData.brand = detectedInfo.brand || updatedFormData.brand || '';
+  updatedFormData.model = detectedInfo.model || updatedFormData.model || '';
+  updatedFormData.systemType = detectedInfo.systemType || updatedFormData.systemType || '';
   
-  // Special handling for age/estimatedAge
-  if (detectedInfo.age) {
-    newData.age = detectedInfo.age;
-  } else if (detectedInfo.estimatedAge) {
-    newData.age = detectedInfo.estimatedAge;
-  }
+  // CRITICAL FIX - Explicitly handle serial number with extra logging
+  console.log("BEFORE SETTING - formData.serialNumber:", formData.serialNumber);
+  console.log("BEFORE SETTING - detectedInfo.serialNumber:", detectedInfo.serialNumber);
   
-  // Special handling for tonnage/capacity
-  if (detectedInfo.tonnage) {
-    newData.tonnage = detectedInfo.tonnage;
-  } else if (detectedInfo.capacity) {
-    newData.tonnage = detectedInfo.capacity;
-  }
+  // Force the serial number value directly
+  updatedFormData.serialNumber = detectedInfo.serialNumber || updatedFormData.serialNumber || '';
   
-  if (detectedInfo.efficiencyRating) newData.efficiencyRating = detectedInfo.efficiencyRating;
-  if (detectedInfo.lastServiced) newData.lastServiced = detectedInfo.lastServiced;
+  // Handle other fields
+  updatedFormData.age = detectedInfo.age || detectedInfo.estimatedAge || updatedFormData.age || '';
+  updatedFormData.tonnage = detectedInfo.tonnage || detectedInfo.capacity || updatedFormData.tonnage || '';
+  updatedFormData.efficiencyRating = detectedInfo.efficiencyRating || updatedFormData.efficiencyRating || '';
+  updatedFormData.lastServiced = detectedInfo.lastServiced || updatedFormData.lastServiced || '';
   
-  // FORCE LOG TO CONSOLE AGAIN
-  alert("Updated form data: " + JSON.stringify(newData));
-  console.log("EMERGENCY DEBUG - Updated form data:", newData);
+  console.log("AFTER MAPPING - new formData.serialNumber:", updatedFormData.serialNumber);
+  console.log("FORM UPDATE - Final mapped data:", updatedFormData);
   
-  // Set form data
-  setFormData(newData);
+  // Set form data with the new object
+  setFormData(updatedFormData);
   
-  // Try direct DOM manipulation as well (belt and suspenders approach)
-  setTimeout(() => {
-    try {
-      // Direct DOM manipulation as a fallback
-      const brandInput = document.querySelector('input[name="brand"]');
-      if (brandInput && detectedInfo.brand) brandInput.value = detectedInfo.brand;
-      
-      const modelInput = document.querySelector('input[name="model"]');
-      if (modelInput && detectedInfo.model) modelInput.value = detectedInfo.model;
-      
-      const serialInput = document.querySelector('input[name="serialNumber"]');
-      if (serialInput && detectedInfo.serialNumber) serialInput.value = detectedInfo.serialNumber;
-      
-      // Force React to recognize the DOM changes
-      if (brandInput) brandInput.dispatchEvent(new Event('change', { bubbles: true }));
-      if (modelInput) modelInput.dispatchEvent(new Event('change', { bubbles: true }));
-      if (serialInput) serialInput.dispatchEvent(new Event('change', { bubbles: true }));
-      
-      console.log("EMERGENCY DEBUG - Tried direct DOM manipulation");
-    } catch (err) {
-      console.log("EMERGENCY DEBUG - DOM manipulation error:", err);
-    }
-  }, 100);
-  
-  // Close camera view
+  // Force immediate rerender by closing camera
   setShowCamera(false);
 };
 
