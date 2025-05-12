@@ -219,7 +219,7 @@ class ZuperService {
         assets: jobData.assetIds || [],
         job_title: jobData.title || 'HVAC Service',
         job_description: jobData.description || '',
-        job_type: jobData.jobType || 'service',
+        job_category: jobData.jobCategory,
         priority: jobData.priority || 'medium',
         status: jobData.status || 'new',
         scheduled_start_time: jobData.scheduledStartTime || null,
