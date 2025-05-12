@@ -140,11 +140,11 @@ class ZuperService {
           zip_code: propertyData.address.zipCode
         },
         property_attributes: {
-          year_built: propertyData.attributes.yearBuilt || '',
-          square_feet: propertyData.attributes.squareFeet || '',
-          bedrooms: propertyData.attributes.bedrooms || '',
-          bathrooms: propertyData.attributes.bathrooms || '',
-          lot_size: propertyData.attributes.lotSize || ''
+          year_built: propertyData.attributes?.yearBuilt || '',
+          square_feet: propertyData.attributes?.squareFeet || '',
+          bedrooms: propertyData.attributes?.bedrooms || '',
+          bathrooms: propertyData.attributes?.bathrooms || '',
+          lot_size: propertyData.attributes?.lotSize || ''
         }
       };
 
@@ -206,12 +206,61 @@ class ZuperService {
   }
 
   /**
+   * Get job categories from Zuper
+   * @returns {Promise<Array>} List of job categories
+   */
+  async getJobCategories() {
+    try {
+      const response = await axios.get(
+        `${this.baseUrl}/v1/job-categories`,
+        {
+          headers: this.getHeaders()
+        }
+      );
+
+      return response.data.data || [];
+    } catch (error) {
+      console.error('Error fetching job categories from Zuper:', error);
+      return [];
+    }
+  }
+
+  /**
    * Create a job in Zuper based on diagnosis
    * @param {Object} jobData - Job data to create
    * @returns {Promise<Object>} Created job data
    */
   async createJob(jobData) {
     try {
+      // Extract required parts from diagnostic result
+      let diagnosticResult = {};
+      try {
+        if (typeof jobData.diagnosticResult === 'string') {
+          diagnosticResult = JSON.parse(jobData.diagnosticResult);
+        } else if (jobData.diagnosticResult) {
+          diagnosticResult = jobData.diagnosticResult;
+        }
+      } catch (e) {
+        console.error('Error parsing diagnostic result:', e);
+      }
+      
+      const requiredParts = diagnosticResult.requiredItems && diagnosticResult.requiredItems.length > 0
+        ? diagnosticResult.requiredItems.join(', ')
+        : '';
+        
+      // Format the diagnostic summary for custom fields
+      const diagnosticSummary = diagnosticResult.possibleIssues && diagnosticResult.possibleIssues.length > 0
+        ? diagnosticResult.possibleIssues.map(issue => `${issue.issue} (${issue.severity})`).join('; ')
+        : '';
+      
+      // Process due date
+      let dueDate = null;
+      if (jobData.dueDate) {
+        // Ensure due date is in ISO format
+        const dueDateObj = new Date(jobData.dueDate);
+        dueDate = dueDateObj.toISOString();
+      }
+      
       // Format the job data according to Zuper API requirements
       const formattedJobData = {
         customer_id: jobData.customerId,
@@ -222,12 +271,12 @@ class ZuperService {
         job_category: jobData.jobCategory,
         priority: jobData.priority || 'medium',
         status: jobData.status || 'new',
-        scheduled_start_time: jobData.scheduledStartTime || null,
-        scheduled_end_time: jobData.scheduledEndTime || null,
+        due_date: dueDate,
         custom_fields: {
-          diagnostic_result: jobData.diagnosticResult || '',
-          required_parts: jobData.requiredParts || '',
-          repair_complexity: jobData.repairComplexity || ''
+          diagnostic_result: diagnosticSummary,
+          required_parts: requiredParts,
+          repair_complexity: diagnosticResult.repairComplexity || '',
+          additional_notes: diagnosticResult.additionalNotes || ''
         }
       };
 
