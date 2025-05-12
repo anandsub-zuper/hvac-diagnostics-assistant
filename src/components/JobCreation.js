@@ -1,5 +1,5 @@
 // src/components/JobCreation.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import zuperService from '../services/zuperService';
 
@@ -180,6 +180,11 @@ const JobCreation = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+  const [jobCategories, setJobCategories] = useState([]);
+  
+  // Format today's date as YYYY-MM-DD for default due date
+  const today = new Date();
+  const formattedToday = today.toISOString().split('T')[0];
   
   // Generate job title based on diagnostic result
   const defaultJobTitle = diagnosticResult && diagnosticResult.primaryIssue 
@@ -231,14 +236,42 @@ const JobCreation = ({
   const [jobData, setJobData] = useState({
     title: defaultJobTitle,
     description: createDefaultDescription(),
-    jobType: 'service',
+    jobCategory: '',
     priority: getPriorityFromDiagnostic(diagnosticResult),
     status: 'new',
+    dueDate: formattedToday,
     selectedAssets: assets.map(asset => ({
       ...asset,
       selected: true
     }))
   });
+  
+  // Fetch job categories when component mounts
+  useEffect(() => {
+    const fetchJobCategories = async () => {
+      try {
+        // Call method in zuperService to get job categories
+        const categories = await zuperService.getJobCategories();
+        setJobCategories(categories);
+        
+        // Set a default category if available
+        if (categories.length > 0) {
+          setJobData(prev => ({
+            ...prev,
+            jobCategory: categories[0].id
+          }));
+        }
+      } catch (err) {
+        console.error('Error fetching job categories:', err);
+        setError({
+          type: 'warning',
+          message: 'Could not fetch job categories. Please select a category manually if available.'
+        });
+      }
+    };
+    
+    fetchJobCategories();
+  }, []);
   
   // Helper function to determine priority from diagnostic result
   function getPriorityFromDiagnostic(diagnostic) {
@@ -296,6 +329,22 @@ const JobCreation = ({
       return false;
     }
     
+    if (!jobData.jobCategory) {
+      setError({
+        type: 'error',
+        message: 'Job category is required'
+      });
+      return false;
+    }
+    
+    if (!jobData.dueDate) {
+      setError({
+        type: 'error',
+        message: 'Due date is required'
+      });
+      return false;
+    }
+    
     return true;
   };
   
@@ -321,9 +370,10 @@ const JobCreation = ({
         assetIds: assetIds,
         title: jobData.title,
         description: jobData.description,
-        jobType: jobData.jobType,
+        jobCategory: jobData.jobCategory,
         priority: jobData.priority,
         status: jobData.status,
+        dueDate: jobData.dueDate,
         diagnosticResult: JSON.stringify(diagnosticResult)
       };
       
@@ -406,18 +456,20 @@ const JobCreation = ({
         
         <FormRow>
           <FormGroup>
-            <Label htmlFor="jobType">Job Type</Label>
+            <Label htmlFor="jobCategory">Job Category *</Label>
             <Select
-              id="jobType"
-              name="jobType"
-              value={jobData.jobType}
+              id="jobCategory"
+              name="jobCategory"
+              value={jobData.jobCategory}
               onChange={handleChange}
+              required
             >
-              <option value="service">Service</option>
-              <option value="installation">Installation</option>
-              <option value="maintenance">Maintenance</option>
-              <option value="inspection">Inspection</option>
-              <option value="repair">Repair</option>
+              <option value="">Select a category</option>
+              {jobCategories.map(category => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
             </Select>
           </FormGroup>
           
@@ -450,6 +502,18 @@ const JobCreation = ({
             </Select>
           </FormGroup>
         </FormRow>
+        
+        <FormGroup>
+          <Label htmlFor="dueDate">Due Date *</Label>
+          <Input
+            type="date"
+            id="dueDate"
+            name="dueDate"
+            value={jobData.dueDate}
+            onChange={handleChange}
+            required
+          />
+        </FormGroup>
         
         {jobData.selectedAssets.length > 0 && (
           <FormGroup>
