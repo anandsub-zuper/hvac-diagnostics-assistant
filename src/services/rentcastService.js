@@ -1,4 +1,4 @@
-// src/services/rentcastService.js
+// src/services/rentcastService.js - FULL UPDATED CODE
 import axios from 'axios';
 
 /**
@@ -184,19 +184,19 @@ class RentcastService {
         city: rawProperty.city || '',
         state: rawProperty.state || '',
         zipCode: rawProperty.zipCode || '',
-        fullAddress: rawProperty.fullAddress || ''
+        fullAddress: rawProperty.formattedAddress || rawProperty.fullAddress || ''
       },
       propertyAttributes: {
         propertyType: rawProperty.propertyType || '',
         yearBuilt: rawProperty.yearBuilt || '',
-        squareFeet: rawProperty.squareFeet || 0,
+        // FIXED: Use squareFootage instead of squareFeet
+        squareFeet: rawProperty.squareFootage || 0,
         bedrooms: rawProperty.bedrooms || 0,
         bathrooms: rawProperty.bathrooms || 0,
         lotSize: rawProperty.lotSize || 0
       },
       propertyFeatures: this.extractPropertyFeatures(rawProperty),
       ownerInfo: this.extractOwnerInfo(rawProperty),
-      tenantInfo: this.extractTenantInfo(rawProperty),
       propertyValues: {
         estimatedValue: rawProperty.estimatedValue || 0,
         lastSalePrice: rawProperty.lastSalePrice || 0,
@@ -212,15 +212,26 @@ class RentcastService {
    * @returns {Object} Property features
    */
   extractPropertyFeatures(rawProperty) {
+    // FIXED: Properly extract features from the features object
+    const features = rawProperty.features || {};
+    
     return {
       hasPool: rawProperty.hasPool || false,
-      hasGarage: rawProperty.hasGarage || false,
-      hasCentralAir: rawProperty.hasCentralAir || false,
+      hasGarage: features.garage || false,
+      hasCentralAir: rawProperty.hasCentralAir || features.centralAir || false,
       hasBasement: rawProperty.hasBasement || false,
-      stories: rawProperty.stories || 1,
+      stories: rawProperty.stories || features.floorCount || 1,
       parkingSpaces: rawProperty.parkingSpaces || 0,
       yearRenovated: rawProperty.yearRenovated || '',
-      features: rawProperty.features || []
+      // Add additional feature properties
+      hasFireplace: features.fireplace || false,
+      floorCount: features.floorCount || 1,
+      garageType: features.garageType || '',
+      hasHeating: features.heating || false,
+      heatingType: features.heatingType || '',
+      unitCount: features.unitCount || 1,
+      // Keep the full features object for reference
+      features: features
     };
   }
 
@@ -230,10 +241,34 @@ class RentcastService {
    * @returns {Object} Owner information
    */
   extractOwnerInfo(rawProperty) {
-    // Rentcast might not provide direct owner info, but we'll structure for future use
+    // FIXED: Properly extract owner information from the nested structure
+    // Check if owner object exists
+    const owner = rawProperty.owner || {};
+    
+    // Extract name(s) from the owner names array if available
+    let ownerName = '';
+    if (owner.names && owner.names.length > 0) {
+      ownerName = owner.names.join(', ');
+    }
+    
+    // Extract mailing address if available
+    let mailingAddress = '';
+    if (owner.mailingAddress) {
+      const ma = owner.mailingAddress;
+      const addressParts = [
+        ma.addressLine1,
+        ma.addressLine2,
+        ma.city,
+        ma.state,
+        ma.zipCode
+      ].filter(part => part); // Remove empty values
+      
+      mailingAddress = addressParts.join(', ');
+    }
+    
     return {
-      name: rawProperty.ownerName || '',
-      mailingAddress: rawProperty.ownerMailingAddress || '',
+      name: ownerName || rawProperty.ownerName || '',
+      mailingAddress: mailingAddress || rawProperty.ownerMailingAddress || '',
       phoneNumber: rawProperty.ownerPhoneNumber || '',
       email: rawProperty.ownerEmail || ''
     };
@@ -241,11 +276,12 @@ class RentcastService {
 
   /**
    * Extract tenant information from raw property data
+   * This method is kept for backward compatibility but is no longer used
    * @param {Object} rawProperty - Raw property data
    * @returns {Object} Tenant information
    */
   extractTenantInfo(rawProperty) {
-    // Rentcast might not provide direct tenant info, but we'll structure for future use
+    // This method is no longer used since tenant info is not required
     return {
       occupancyStatus: rawProperty.occupancyStatus || 'Unknown',
       leaseStartDate: rawProperty.leaseStartDate || '',
