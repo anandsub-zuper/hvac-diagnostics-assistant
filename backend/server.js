@@ -191,7 +191,7 @@ app.post('/api/zuper', async (req, res) => {
     // Determine region
     const region = process.env.ZUPER_REGION || 'us';
     
-    // CORRECTED: Use the proper base URL format you provided
+    // CORRECTED: Use the proper base URL format
     const baseUrl = `https://${region}.zuperpro.com/api`;
     
     // Ensure endpoint doesn't start with a slash since the baseUrl already ends with /api
@@ -208,12 +208,12 @@ app.post('/api/zuper', async (req, res) => {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
         // CRITICAL: Use the correct Authorization format
-       'x-api-key': apiKey
+        'x-api-key': apiKey
       },
       timeout: 30000
     };
 
-     // Add query parameters if provided
+    // Add query parameters if provided
     if (params) {
       requestConfig.params = params;
     }
@@ -229,15 +229,16 @@ app.post('/api/zuper', async (req, res) => {
     });
     
     // Make the request to Zuper API
+    // IMPORTANT: Make the request BEFORE trying to log its response
     const response = await axios(requestConfig);
-
-        // FIXED: Log the response AFTER receiving it
+    
+    // FIXED: Only now, after we have the response, we can log it
     console.log(`\n===== ZUPER API RESPONSE =====`);
     console.log(`Status: ${response.status}`);
     console.log(`Response Data: ${JSON.stringify(response.data, null, 2)}`);
     console.log(`============================\n`);
 
-    // ENHANCED: Log the response details with IDs for key endpoints
+    // Log additional details for specific endpoints
     console.log(`Zuper API request successful: ${method} ${endpoint}`);
     
     if (endpoint === 'customers_new') {
