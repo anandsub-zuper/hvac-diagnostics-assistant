@@ -133,7 +133,7 @@ class ZuperService {
         }
       };
 
-      const response = await this.makeProxiedRequest('v1/properties', 'POST', null, formattedPropertyData);
+      const response = await this.makeProxiedRequest('property', 'POST', null, formattedPropertyData);
       return response.data;
     } catch (error) {
       console.error('Error creating property in Zuper:', error);
@@ -168,7 +168,7 @@ class ZuperService {
         }
       };
 
-      const response = await this.makeProxiedRequest('v1/assets', 'POST', null, formattedAssetData);
+      const response = await this.makeProxiedRequest('assets', 'POST', null, formattedAssetData);
       return response.data;
     } catch (error) {
       console.error('Error creating asset in Zuper:', error);
@@ -245,7 +245,7 @@ class ZuperService {
         }
       };
 
-      const response = await this.makeProxiedRequest('v1/jobs', 'POST', null, formattedJobData);
+      const response = await this.makeProxiedRequest('jobs', 'POST', null, formattedJobData);
       return response.data;
     } catch (error) {
       console.error('Error creating job in Zuper:', error);
