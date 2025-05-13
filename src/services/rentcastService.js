@@ -1,4 +1,3 @@
-// src/services/rentcastService.js
 import axios from 'axios';
 
 /**
@@ -8,7 +7,7 @@ class RentcastService {
   constructor() {
     this.apiKey = process.env.REACT_APP_RENTCAST_API_KEY;
     this.baseUrl = 'https://api.rentcast.io/v1';
-    
+
     if (!this.apiKey) {
       console.warn('Rentcast API key is not configured');
     }
@@ -34,16 +33,21 @@ class RentcastService {
     try {
       // Format the address for the API request
       const formattedAddress = `${address.streetNumber} ${address.street}, ${address.city}, ${address.state} ${address.zipCode}`;
-      
+      const url = `${this.baseUrl}/properties/search`;
+      const headers = this.getHeaders();
+      const params = { address: formattedAddress };
+
+      console.log('RentCast API Request (Address):', url, headers, params); // Added logging
+
       const response = await axios.get(
-        `${this.baseUrl}/properties/search`,
+        url,
         {
-          headers: this.getHeaders(),
-          params: {
-            address: formattedAddress
-          }
+          headers,
+          params
         }
       );
+
+      console.log('RentCast API Response (Address):', response); // Added logging
 
       if (!response.data || response.data.length === 0) {
         throw new Error('No property found at this address');
@@ -58,22 +62,27 @@ class RentcastService {
 
   /**
    * Get property details by latitude and longitude
-   * @param {number} latitude 
-   * @param {number} longitude 
+   * @param {number} latitude
+   * @param {number} longitude
    * @returns {Promise<Object>} Property details
    */
   async getPropertyByLocation(latitude, longitude) {
     try {
+      const url = `${this.baseUrl}/properties/coordinates`;
+      const headers = this.getHeaders();
+      const params = { latitude, longitude };
+
+      console.log('RentCast API Request (Location):', url, headers, params);  // Added logging
+
       const response = await axios.get(
-        `${this.baseUrl}/properties/coordinates`,
+        url,
         {
-          headers: this.getHeaders(),
-          params: {
-            latitude,
-            longitude
-          }
+          headers,
+          params
         }
       );
+
+      console.log('RentCast API Response (Location):', response);  // Added logging
 
       if (!response.data || response.data.length === 0) {
         throw new Error('No property found at this location');
