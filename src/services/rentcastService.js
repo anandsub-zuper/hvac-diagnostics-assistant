@@ -32,13 +32,13 @@ class RentcastService {
    */
   async getPropertyByAddress(address) {
     try {
-      // Format the address for the API request
-      const formattedAddress = `${address.streetNumber} ${address.street}, ${address.city}, ${address.state} ${address.zipCode}`;
+      // Format the address for the API request with commas and United States
+      const formattedAddress = `${address.streetNumber}, ${address.street}, ${address.city}, ${address.state}, ${address.zipCode}, United States`;
       
       console.log('Querying Rentcast by address:', formattedAddress);
       
       const response = await axios.get(
-        `${this.baseUrl}/properties/search`,
+        `${this.baseUrl}/properties`, // FIXED: Correct endpoint
         {
           headers: this.getHeaders(),
           params: {
@@ -68,17 +68,14 @@ class RentcastService {
     try {
       console.log('Querying Rentcast by coordinates:', latitude, longitude);
       
-      // Using the address lookup endpoint with latitude and longitude
-      // Check Rentcast documentation for the correct endpoint structure
-      // This is updating to use the /properties/search endpoint with radius search
+      // FIXED: Using the correct properties endpoint with lat/long
       const response = await axios.get(
-        `${this.baseUrl}/properties/search`,
+        `${this.baseUrl}/properties`,
         {
           headers: this.getHeaders(),
           params: {
-            latitude: latitude,
-            longitude: longitude,
-            radius: 0.1 // 0.1 mile radius - adjust as needed
+            latitude,
+            longitude
           }
         }
       );
