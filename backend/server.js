@@ -223,7 +223,7 @@ app.post('/api/zuper', async (req, res) => {
       console.log(`Property Name: ${data?.property?.property_name}`);
       console.log(`For Customer ID: ${data?.property?.customer_id}`);
     }
-    
+
     // Add query parameters if provided
     if (params) {
       requestConfig.params = params;
