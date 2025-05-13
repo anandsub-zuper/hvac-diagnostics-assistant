@@ -1,4 +1,4 @@
-// Fixed zuperService.js with improved customer search
+// Updated zuperService.js with corrected field names for Zuper API
 
 import axios from 'axios';
 
@@ -147,30 +147,40 @@ class ZuperService {
       }
       
       // Format the customer data according to Zuper API requirements
+      // CORRECTED: Use the proper field names expected by Zuper API
       const formattedCustomerData = {
-        customer: {
-          first_name: customerData.firstName,
-          last_name: customerData.lastName,
-          email: customerData.email,
-          phone: customerData.phone,
-          company_name: customerData.companyName || '',
-          notes: customerData.notes || '',
-          customer_type: customerData.customerType || 'residential',
-          address: customerData.address ? {
-            address_line1: customerData.address.streetAddress,
-            address_line2: customerData.address.unit || '',
-            city: customerData.address.city,
-            state: customerData.address.state,
-            country: customerData.address.country || 'USA',
-            zip_code: customerData.address.zipCode
-          } : undefined
-        }
+        // FIXED: Using the correct field names for the Zuper API
+        customer_first_name: customerData.firstName,
+        customer_last_name: customerData.lastName,
+        customer_email: customerData.email,
+        customer_phone: customerData.phone,
+        customer_company_name: customerData.companyName || '',
+        customer_notes: customerData.notes || '',
+        customer_type: customerData.customerType || 'residential',
+        customer_address: customerData.address ? {
+          address_line1: customerData.address.streetAddress,
+          address_line2: customerData.address.unit || '',
+          city: customerData.address.city,
+          state: customerData.address.state,
+          country: customerData.address.country || 'USA',
+          zip_code: customerData.address.zipCode
+        } : undefined
       };
 
       console.log('Creating new customer with data:', JSON.stringify(formattedCustomerData, null, 2));
 
       const response = await this.makeProxiedRequest('customers_new', 'POST', null, formattedCustomerData);
-      if (!response || !response.id) {
+      // IMPROVED: Better validation of successful customer creation
+      if (!response) {
+        throw new Error('Empty response from customer creation');
+      }
+      
+      // Check for error messages in the response
+      if (response.error || response.message) {
+        throw new Error(`Customer creation failed: ${response.message || JSON.stringify(response.error)}`);
+      }
+      
+      if (!response.id) {
         console.error('Customer creation response missing ID:', response);
         throw new Error('Customer creation failed: No ID returned');
       }
@@ -183,7 +193,6 @@ class ZuperService {
     }
   }
 
-  // Rest of the service methods remain the same...
   /**
    * Create a property for a customer in Zuper
    * @param {string} customerId - Zuper customer ID
@@ -343,7 +352,7 @@ class ZuperService {
    */
   async getCustomerProperties(customerId) {
     try {
-      const response = await this.makeProxiedRequest('v1/properties', 'GET', { customer_id: customerId });
+      const response = await this.makeProxiedRequest('property', 'GET', { customer_id: customerId });
       return response.data || [];
     } catch (error) {
       console.error('Error fetching customer properties from Zuper:', error);
@@ -358,7 +367,7 @@ class ZuperService {
    */
   async getPropertyAssets(propertyId) {
     try {
-      const response = await this.makeProxiedRequest('v1/assets', 'GET', { property_id: propertyId });
+      const response = await this.makeProxiedRequest('assets', 'GET', { property_id: propertyId });
       return response.data || [];
     } catch (error) {
       console.error('Error fetching property assets from Zuper:', error);
