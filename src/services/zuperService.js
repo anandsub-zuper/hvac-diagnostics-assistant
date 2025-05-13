@@ -95,7 +95,7 @@ class ZuperService {
         } : undefined
       };
 
-      const response = await this.makeProxiedRequest('v1/customers', 'POST', null, formattedCustomerData);
+      const response = await this.makeProxiedRequest('customers_new', 'POST', null, formattedCustomerData);
       return response.data;
     } catch (error) {
       console.error('Error creating customer in Zuper:', error);
