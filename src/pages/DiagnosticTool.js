@@ -56,14 +56,14 @@ const BackButton = styled.button`
   display: flex;
   align-items: center;
   font-size: 16px;
-  
+
   &:hover {
     text-decoration: underline;
   }
-  
+
   &:before {
     content: "←";
-    margin-right: 5px;
+    margin-right: 0.5rem;
   }
 `;
 
@@ -98,7 +98,7 @@ const Button = styled.button`
   cursor: pointer;
   font-size: 16px;
   margin-top: 20px;
-  
+
   &:hover {
     background-color: ${props => props.primary ? '#2980b9' : '#d0d0d0'};
   }
@@ -123,10 +123,10 @@ const DiagnosticTool = ({ isOnline, diagnosticData, setDiagnosticData }) => {
     JOB_CREATION: 9,
     COMPLETION: 10
   };
-  
+
   // Use app-level state for persistent data and create some local state for what we don't need to persist
   const { step, systemType, systemInfo, symptoms } = diagnosticData;
-  
+
   // Local state for workflow management
   const [currentStep, setCurrentStep] = useState(STEPS.LOCATION);
   const [locationData, setLocationData] = useState(null);
@@ -138,24 +138,24 @@ const DiagnosticTool = ({ isOnline, diagnosticData, setDiagnosticData }) => {
     propertyId: null
   });
   const [assets, setAssets] = useState([]);
-  
+
   // State for diagnosis
   const [diagnosticResult, setDiagnosticResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [session, setSession] = useState(null);
-  
+
   // Initialize session ID
   useEffect(() => {
     setSession(`session-${Date.now()}`);
   }, []);
-  
+
   // Calculate progress for progress bar
   const calculateProgress = () => {
     const totalSteps = Object.keys(STEPS).length;
     return ((currentStep + 1) / totalSteps) * 100;
   };
-  
+
   // Helper functions to update app-level state
   const setStep = (newStep) => {
     setDiagnosticData({
@@ -163,73 +163,73 @@ const DiagnosticTool = ({ isOnline, diagnosticData, setDiagnosticData }) => {
       step: newStep
     });
   };
-  
+
   const setSystemType = (newType) => {
     setDiagnosticData({
       ...diagnosticData,
       systemType: newType
     });
   };
-  
+
   const setSystemInfo = (newInfo) => {
     setDiagnosticData({
       ...diagnosticData,
       systemInfo: newInfo
     });
   };
-  
+
   const setSymptoms = (newSymptoms) => {
     setDiagnosticData({
       ...diagnosticData,
       symptoms: newSymptoms
     });
   };
-  
+
   // Handle location detection
   const handleLocationDetected = (location) => {
     setLocationData(location);
     setAddressData(location);
     setCurrentStep(STEPS.ADDRESS);
   };
-  
+
   // Handle skipping location detection
   const handleSkipLocation = () => {
     setCurrentStep(STEPS.ADDRESS);
   };
-  
+
   // Handle address confirmation
   const handleAddressConfirmed = (address) => {
     setAddressData(address);
     setCurrentStep(STEPS.PROPERTY);
   };
-  
+
   // Handle property details submission
   const handlePropertyDetailsSubmit = (property) => {
     setPropertyData(property);
     setCurrentStep(STEPS.CUSTOMER);
   };
-  
+
   // Handle customer details submission
   const handleCustomerDetailsSubmit = async (customer) => {
     setCustomerData(customer);
-    
+
     // Create customer and property in Zuper
     if (isOnline) {
       setIsLoading(true);
-      
+
       try {
         // Check if we have an existing customer ID
         let customerId = customer.existingCustomerId;
-        
+
         // If no existing customer, create one
         if (!customerId) {
           const createdCustomer = await zuperService.createCustomer(customer);
           customerId = createdCustomer.id;
         }
-        
+
         // Create property for the customer
         const createdProperty = await zuperService.createProperty(customerId, propertyData);
-        
+
         // Save the IDs
         setZuperIds({
           customerId,
@@ -242,66 +242,66 @@ const DiagnosticTool = ({ isOnline, diagnosticData, setDiagnosticData }) => {
         setIsLoading(false);
       }
     }
-    
+
     // Continue to HVAC system type selection
     setCurrentStep(STEPS.SYSTEM_TYPE);
   };
-  
+
   // Handle system type selection
   const handleSystemTypeSelect = (type) => {
     setSystemType(type);
     setCurrentStep(STEPS.SYSTEM_INFO);
   };
-  
+
   // Handle system info submission
   const handleSystemInfoSubmit = (info) => {
     setSystemInfo(info);
     setCurrentStep(STEPS.SYMPTOMS);
   };
-  
+
   // Handle symptoms submission
   const handleSymptomsSubmit = async (symptomData) => {
     setSymptoms(symptomData);
     setIsLoading(true);
     setError(null);
-    
+
     try {
       let diagnosisResult;
-      
+
       if (isOnline) {
         try {
           console.log('Attempting online diagnosis with API...');
-          
+
           // Use the API for diagnosis
           const apiUrl = new URL('api/diagnose', API_URL).toString();
           console.log('Using API URL:', apiUrl);
-          
+
           const response = await axios.post(apiUrl, {
             systemType,
             systemInfo,
             symptoms: symptomData
-          }, { 
+          }, {
             timeout: 25000,
             headers: {
               'Content-Type': 'application/json'
             }
           });
-          
+
           diagnosisResult = response.data;
           console.log('Diagnosis result received:', diagnosisResult);
-          
+
           // Add source information
           diagnosisResult.source = 'ai';
         } catch (onlineError) {
           console.warn('Online diagnosis failed, falling back to offline mode:', onlineError);
-          
+
           // Fall back to offline diagnosis
           diagnosisResult = await getOfflineDiagnosticData(
-            systemType, 
-            systemInfo, 
+            systemType,
+            systemInfo,
             symptomData
           );
-          
+
           // Add note about fallback
           diagnosisResult.note = "Using offline diagnosis due to connection issues with AI service.";
           diagnosisResult.source = 'offline';
@@ -310,15 +310,15 @@ const DiagnosticTool = ({ isOnline, diagnosticData, setDiagnosticData }) => {
         // Offline mode - use cached data
         console.log('Using offline diagnostic data...');
         diagnosisResult = await getOfflineDiagnosticData(
-          systemType, 
-          systemInfo, 
+          systemType,
+          systemInfo,
           symptomData
         );
         diagnosisResult.source = 'offline';
       }
-      
+
       setDiagnosticResult(diagnosisResult);
-      
+
       // Save to local storage for offline access
       if (diagnosisResult) {
         const diagnosticToSave = {
@@ -329,11 +329,11 @@ const DiagnosticTool = ({ isOnline, diagnosticData, setDiagnosticData }) => {
           symptoms: symptomData,
           result: diagnosisResult
         };
-        
+
         console.log('Saving diagnostic to local storage:', diagnosticToSave);
         saveDiagnosticToLocalStorage(diagnosticToSave);
       }
-      
+
       // Continue to diagnosis step
       setCurrentStep(STEPS.DIAGNOSIS);
     } catch (err) {
@@ -343,18 +343,18 @@ const DiagnosticTool = ({ isOnline, diagnosticData, setDiagnosticData }) => {
       setIsLoading(false);
     }
   };
-  
+
   // Handle asset creation
   const handleAssetCreated = (asset) => {
     setAssets(prev => [...prev, asset]);
   };
-  
+
   // Handle job creation
   const handleJobCreated = (job) => {
     // Continue to completion step
     setCurrentStep(STEPS.COMPLETION);
   };
-  
+
   // Restart the workflow
   const resetWorkflow = () => {
     setCurrentStep(STEPS.LOCATION);
@@ -370,7 +370,7 @@ const DiagnosticTool = ({ isOnline, diagnosticData, setDiagnosticData }) => {
     setDiagnosticResult(null);
     setError(null);
     setSession(`session-${Date.now()}`);
-    
+
     // Reset app-level state
     setDiagnosticData({
       step: 1,
@@ -379,78 +379,78 @@ const DiagnosticTool = ({ isOnline, diagnosticData, setDiagnosticData }) => {
       symptoms: ''
     });
   };
-  
+
   // Handle moving to asset creation after diagnosis
   const handleContinueToAssetCreation = () => {
     setCurrentStep(STEPS.ASSET_CREATION);
   };
-  
+
   // Handle moving to job creation after asset creation
   const handleContinueToJobCreation = () => {
     setCurrentStep(STEPS.JOB_CREATION);
   };
-  
+
   // Handle going back a step
   const handleBack = () => {
     // Don't allow going back from location step
     if (currentStep === STEPS.LOCATION) {
       return;
     }
-    
+
     // Go back one step
     setCurrentStep(prev => prev - 1);
   };
-  
+
   // Render the correct component based on current step
   const renderCurrentStep = () => {
     switch (currentStep) {
       case STEPS.LOCATION:
         return (
-          <LocationDetector 
+          <LocationDetector
             onLocationDetected={handleLocationDetected}
             onSkip={handleSkipLocation}
           />
         );
-        
+
       case STEPS.ADDRESS:
         return (
-          <AddressConfirmation 
+          <AddressConfirmation
             initialAddress={addressData}
             onAddressConfirmed={handleAddressConfirmed}
             onBack={handleBack}
           />
         );
-        
+
       case STEPS.PROPERTY:
         return (
-          <PropertyDetails 
+          <PropertyDetails
             address={addressData}
             onPropertyDetailsSubmit={handlePropertyDetailsSubmit}
             onBack={handleBack}
           />
         );
-        
+
       case STEPS.CUSTOMER:
         return (
-          <CustomerDetails 
+          <CustomerDetails
             propertyData={propertyData}
             onCustomerDetailsSubmit={handleCustomerDetailsSubmit}
             onBack={handleBack}
           />
         );
-        
+
       case STEPS.SYSTEM_TYPE:
         return (
-          <DiagnosticForm 
+          <DiagnosticForm
             formType="systemType"
             onSubmit={handleSystemTypeSelect}
             onBack={handleBack}
           />
         );
-        
+
       case STEPS.SYSTEM_INFO:
         return (
-          <DiagnosticForm 
+          <DiagnosticForm
             formType="systemInfo"
             systemType={systemType}
             initialFormData={systemInfo}
@@ -458,25 +458,25 @@ const DiagnosticTool = ({ isOnline, diagnosticData, setDiagnosticData }) => {
             onBack={handleBack}
           />
         );
-        
+
       case STEPS.SYMPTOMS:
         return (
-          <DiagnosticForm 
+          <DiagnosticForm
             formType="symptoms"
             systemType={systemType}
             onSubmit={handleSymptomsSubmit}
             onBack={handleBack}
           />
         );
-        
+
       case STEPS.DIAGNOSIS:
         if (isLoading) {
           return <LoadingSpinner />;
         }
-        
+
         return (
           <div>
-            <DiagnosticResult 
+            <DiagnosticResult
               result={diagnosticResult}
               error={error}
               onReset={resetWorkflow}
@@ -487,10 +487,10 @@ const DiagnosticTool = ({ isOnline, diagnosticData, setDiagnosticData }) => {
             </Button>
           </div>
         );
-        
+
       case STEPS.ASSET_CREATION:
         return (
-          <AssetCreation 
+          <AssetCreation
             systemInfo={systemInfo}
             customerData={customerData}
             propertyData={propertyData}
@@ -500,10 +500,10 @@ const DiagnosticTool = ({ isOnline, diagnosticData, setDiagnosticData }) => {
             onContinue={handleContinueToJobCreation}
           />
         );
-        
+
       case STEPS.JOB_CREATION:
         return (
-          <JobCreation 
+          <JobCreation
             diagnosticResult={diagnosticResult}
             zuperIds={zuperIds}
             assets={assets}
@@ -512,7 +512,7 @@ const DiagnosticTool = ({ isOnline, diagnosticData, setDiagnosticData }) => {
             onComplete={() => setCurrentStep(STEPS.COMPLETION)}
           />
         );
-        
+
       case STEPS.COMPLETION:
         return (
           <CompletionMessage>
@@ -524,32 +524,32 @@ const DiagnosticTool = ({ isOnline, diagnosticData, setDiagnosticData }) => {
             </Button>
           </CompletionMessage>
         );
-        
+
       default:
         return <div>Unknown step</div>;
     }
   };
-  
+
   return (
     <Container>
       <h1>HVAC System Diagnostics Assistant</h1>
-      
+
       {!isOnline && (
         <OfflineMessage>
           You are currently offline. Using cached diagnostic data.
         </OfflineMessage>
       )}
-      
+
       <ProgressBar>
         <Progress progress={calculateProgress()} />
       </ProgressBar>
-      
+
       {currentStep > STEPS.LOCATION && (
         <BackButton onClick={handleBack}>
           Back
         </BackButton>
       )}
-      
+
       <WorkflowStep>
         {renderCurrentStep()}
       </WorkflowStep>
