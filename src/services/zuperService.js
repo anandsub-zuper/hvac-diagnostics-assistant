@@ -149,6 +149,7 @@ class ZuperService {
       // Format the customer data according to Zuper API requirements
       // CORRECTED: Use the proper field names expected by Zuper API
       const formattedCustomerData = {
+         customer: { 
         // FIXED: Using the correct field names for the Zuper API
         customer_first_name: customerData.firstName,
         customer_last_name: customerData.lastName,
@@ -165,6 +166,7 @@ class ZuperService {
           country: customerData.address.country || 'USA',
           zip_code: customerData.address.zipCode
         } : undefined
+         }
       };
 
       console.log('Creating new customer with data:', JSON.stringify(formattedCustomerData, null, 2));
