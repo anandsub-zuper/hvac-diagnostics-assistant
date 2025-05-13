@@ -209,57 +209,88 @@ const DiagnosticTool = ({ isOnline, diagnosticData, setDiagnosticData }) => {
     setCurrentStep(STEPS.CUSTOMER);
   };
 
-  // Handle customer details submission
-  const handleCustomerDetailsSubmit = async (customer) => {
-    setCustomerData(customer);
+// Updated handleCustomerDetailsSubmit function for DiagnosticTool.js
+// Replace the existing function with this improved version
 
-    // Create customer and property in Zuper
-    if (isOnline) {
-      setIsLoading(true);
+// Handle customer details submission
+const handleCustomerDetailsSubmit = async (customer) => {
+  setCustomerData(customer);
 
-      try {
-        // Check if we have an existing customer ID
-        let customerId = customer.existingCustomerId;
-        console.log("Initial customer ID (from existing):", customerId);
+  // Create customer and property in Zuper
+  if (isOnline) {
+    setIsLoading(true);
+    setError(null);
 
-        // If no existing customer, create one
-        if (!customerId) {
+    try {
+      // Check if we have an existing customer ID
+      let customerId = customer.existingCustomerId;
+      console.log("Customer data:", customer);
+      console.log("Using existing customer ID:", customerId);
+
+      // If no existing customer, create one
+      if (!customerId) {
+        try {
           console.log('Creating new customer:', customer.firstName, customer.lastName);
           const createdCustomer = await zuperService.createCustomer(customer);
-           console.log('Customer creation response:', createdCustomer);
-          customerId = createdCustomer.id;
+          
+          if (!createdCustomer || (!createdCustomer.id && !createdCustomer.customer_id)) {
+            throw new Error('Failed to create customer - no ID returned');
+          }
+          
+          customerId = createdCustomer.id || createdCustomer.customer_id;
+          console.log('New customer created with ID:', customerId);
+        } catch (customerError) {
+          console.error('Error creating customer:', customerError);
+          throw new Error(`Customer creation failed: ${customerError.message}`);
         }
+      }
 
-        if (!customerId) {
-          console.error('Failed to get customer ID from response');
-          throw new Error('Customer creation did not return an ID');
-        }
-
-         console.log('New customer created with ID:', customerId);
-
-        // Create property for the customer
+      // Create property for the customer
+      try {
+        console.log('Creating property for customer ID:', customerId);
         const createdProperty = await zuperService.createProperty(customerId, propertyData);
-
+        
+        if (!createdProperty || (!createdProperty.id && !createdProperty.property_id)) {
+          throw new Error('Failed to create property - no ID returned');
+        }
+        
+        const propertyId = createdProperty.id || createdProperty.property_id;
+        console.log('New property created with ID:', propertyId);
+        
         // Save the IDs
         setZuperIds({
           customerId,
-          propertyId: createdProperty.id
+          propertyId
         });
+        
         console.log('Zuper integration complete');
         console.log('Customer ID:', customerId);
-        console.log('Property ID:', createdProperty.id); // FIXED: Use createdProperty.id instead of propertyId
-      } catch (err) {
-        console.error('Error with Zuper integration:', err);
-        console.error('Error creating customer/property in Zuper:', err);
-        // Continue anyway - we'll allow local diagnosis without Zuper integration
-      } finally {
-        setIsLoading(false);
+        console.log('Property ID:', propertyId);
+      } catch (propertyError) {
+        console.error('Error creating property:', propertyError);
+        throw new Error(`Property creation failed: ${propertyError.message}`);
       }
+    } catch (err) {
+      console.error('Error with Zuper integration:', err);
+      
+      // Show error but continue anyway
+      setError({
+        type: 'warning',
+        message: `Zuper integration issue: ${err.message}. Continuing with local diagnosis.`
+      });
+    } finally {
+      setIsLoading(false);
     }
+  } else {
+    console.log('Offline mode - skipping Zuper integration');
+  }
 
-    // Continue to HVAC system type selection
-    setCurrentStep(STEPS.SYSTEM_TYPE);
-  };
+  // Clear any previous error
+  setError(null);
+  
+  // Continue to HVAC system type selection
+  setCurrentStep(STEPS.SYSTEM_TYPE);
+};
 
   // Handle system type selection
   const handleSystemTypeSelect = (type) => {
