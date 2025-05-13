@@ -45,16 +45,16 @@ class RentcastService {
 
       console.log('Querying Rentcast by address:', addressStr);
 
-      // FIXED: Let axios handle the encoding of parameters
-      const response = await axios.get(
-        `${this.baseUrl}/properties`,
-        {
-          headers: this.getHeaders(),
-          params: {
-            address: addressStr // Pass unencoded address, axios will encode properly
-          }
-        }
-      );
+      // CRITICAL FIX: Manually encode the address and construct the full URL
+      // This bypasses axios's params object completely
+      const encodedAddress = encodeURIComponent(addressStr);
+      const fullUrl = `${this.baseUrl}/properties?address=${encodedAddress}`;
+      
+      console.log('Request URL:', fullUrl);
+      
+      const response = await axios.get(fullUrl, {
+        headers: this.getHeaders()
+      });
 
       // Check if we got data back
       if (!response.data || response.data.length === 0) {
@@ -79,17 +79,14 @@ class RentcastService {
     try {
       console.log('Querying Rentcast by coordinates:', latitude, longitude);
 
-      // Use the correct endpoint with coordinates
-      const response = await axios.get(
-        `${this.baseUrl}/properties`,
-        {
-          headers: this.getHeaders(),
-          params: {
-            latitude,
-            longitude
-          }
-        }
-      );
+      // FIXED: Construct the URL manually to avoid double encoding
+      const fullUrl = `${this.baseUrl}/properties?latitude=${latitude}&longitude=${longitude}`;
+      
+      console.log('Request URL:', fullUrl);
+      
+      const response = await axios.get(fullUrl, {
+        headers: this.getHeaders()
+      });
 
       // Check if we got data back
       if (!response.data || response.data.length === 0) {
@@ -151,15 +148,14 @@ class RentcastService {
     try {
       console.log('Querying Rentcast by ZIP code:', zipCode);
 
-      const response = await axios.get(
-        `${this.baseUrl}/properties`,
-        {
-          headers: this.getHeaders(),
-          params: {
-            zipCode
-          }
-        }
-      );
+      // FIXED: Construct the URL manually
+      const fullUrl = `${this.baseUrl}/properties?zipCode=${zipCode}`;
+      
+      console.log('Request URL:', fullUrl);
+      
+      const response = await axios.get(fullUrl, {
+        headers: this.getHeaders()
+      });
 
       if (!response.data || response.data.length === 0) {
         throw new Error('No properties found for this ZIP code');
