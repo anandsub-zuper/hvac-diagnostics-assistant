@@ -14,17 +14,6 @@ class RentcastService {
   }
 
   /**
-   * Get authorization headers for API requests
-   * @returns {Object} Headers object
-   */
-  getHeaders() {
-    return {
-      'accept': 'application/json',
-      'X-Api-Key': this.apiKey
-    };
-  }
-
-  /**
    * Get property details by address
    * @param {Object} address - Address object containing street, city, state, zipCode
    * @returns {Promise<Object>} Property details
@@ -33,27 +22,30 @@ class RentcastService {
     try {
       // Format the address for the API request
       const formattedAddress = `${address.streetNumber} ${address.street}, ${address.city}, ${address.state} ${address.zipCode}`;
-      const url = `${this.baseUrl}/properties/search`;
-      const headers = this.getHeaders();
-      const params = { address: formattedAddress };
+      const url = `${this.baseUrl}/properties?address=${encodeURIComponent(formattedAddress)}`; // Construct URL directly
 
-      console.log('RentCast API Request (Address):', url, headers, params); // Added logging
+      console.log('RentCast API Request (Address):', url);
 
-      const response = await axios.get(
-        url,
-        {
-          headers,
-          params
-        }
-      );
+      const response = await fetch(url, { // Use fetch
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          'X-Api-Key': this.apiKey,
+        },
+      });
 
-      console.log('RentCast API Response (Address):', response); // Added logging
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`RentCast API error: ${response.status} - ${errorText}`);
+      }
 
-      if (!response.data || response.data.length === 0) {
+      const data = await response.json();
+
+      if (!data || data.length === 0) {
         throw new Error('No property found at this address');
       }
 
-      return this.processPropertyData(response.data[0]);
+      return this.processPropertyData(data[0]);
     } catch (error) {
       console.error('Error fetching property from Rentcast:', error);
       throw error;
@@ -68,27 +60,30 @@ class RentcastService {
    */
   async getPropertyByLocation(latitude, longitude) {
     try {
-      const url = `${this.baseUrl}/properties/coordinates`;
-      const headers = this.getHeaders();
-      const params = { latitude, longitude };
+      const url = `${this.baseUrl}/properties/coordinates?latitude=${latitude}&longitude=${longitude}`; // Construct URL directly
 
-      console.log('RentCast API Request (Location):', url, headers, params);  // Added logging
+      console.log('RentCast API Request (Location):', url);
 
-      const response = await axios.get(
-        url,
-        {
-          headers,
-          params
-        }
-      );
+      const response = await fetch(url, { // Use fetch
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          'X-Api-Key': this.apiKey,
+        },
+      });
 
-      console.log('RentCast API Response (Location):', response);  // Added logging
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`RentCast API error: ${response.status} - ${errorText}`);
+      }
 
-      if (!response.data || response.data.length === 0) {
+      const data = await response.json();
+
+      if (!data || data.length === 0) {
         throw new Error('No property found at this location');
       }
 
-      return this.processPropertyData(response.data[0]);
+      return this.processPropertyData(data[0]);
     } catch (error) {
       console.error('Error fetching property by location from Rentcast:', error);
       throw error;
