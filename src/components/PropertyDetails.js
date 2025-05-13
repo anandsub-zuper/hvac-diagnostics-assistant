@@ -165,7 +165,9 @@ const PropertyDetails = ({ address, onPropertyDetailsSubmit, onBack }) => {
   // Fetch property details from Rentcast when component mounts
   useEffect(() => {
     const fetchPropertyDetails = async () => {
-      if (!address || !address.latitude || !address.longitude) {
+      // Make sure we have at least some address data before attempting to fetch
+      if (!address || (!address.latitude && !address.longitude && !address.streetNumber)) {
+        console.log('Insufficient address data to query Rentcast', address);
         return;
       }
       
@@ -173,11 +175,50 @@ const PropertyDetails = ({ address, onPropertyDetailsSubmit, onBack }) => {
       setError(null);
       
       try {
-        // Get property details from Rentcast
-        const propertyDetails = await rentcastService.getPropertyByLocation(
-          address.latitude,
-          address.longitude
-        );
+        console.log('Fetching property details for address:', address);
+        
+        // First, try to use our new getPropertyWithFallback method that tries multiple approaches
+        let propertyDetails;
+        try {
+          // Use fallback method to try different lookup methods
+          propertyDetails = await rentcastService.getPropertyWithFallback(address);
+        } catch (fallbackError) {
+          console.error('All RentCast lookup methods failed:', fallbackError);
+          
+          // If fallback method fails, let's try each method individually with more specific error handling
+          
+          // Try address-based lookup if we have enough address components
+          if (address.streetNumber && address.street && address.city && address.state) {
+            try {
+              console.log('Attempting direct address lookup...');
+              propertyDetails = await rentcastService.getPropertyByAddress(address);
+            } catch (addressError) {
+              console.error('Direct address lookup failed:', addressError);
+              // Continue to coordinates lookup
+            }
+          }
+          
+          // Try coordinates lookup if we have lat/long and haven't succeeded yet
+          if (!propertyDetails && address.latitude && address.longitude) {
+            try {
+              console.log('Attempting direct coordinates lookup...');
+              propertyDetails = await rentcastService.getPropertyByLocation(
+                address.latitude,
+                address.longitude
+              );
+            } catch (coordsError) {
+              console.error('Direct coordinates lookup failed:', coordsError);
+              throw new Error('All RentCast lookup methods failed');
+            }
+          }
+          
+          // If we've reached here and still don't have propertyDetails, we need to throw an error
+          if (!propertyDetails) {
+            throw new Error('Could not retrieve property details from RentCast');
+          }
+        }
+        
+        console.log('Property details retrieved:', propertyDetails);
         
         // Update state with fetched data
         setPropertyData({
@@ -204,9 +245,18 @@ const PropertyDetails = ({ address, onPropertyDetailsSubmit, onBack }) => {
             email: propertyDetails.tenantInfo.tenantEmail || ''
           }
         });
+        
+        // Show success message
+        setError({
+          type: 'success',
+          message: 'Property details retrieved successfully!'
+        });
       } catch (err) {
         console.error('Error fetching property details:', err);
-        setError('Unable to fetch property details. Please enter information manually.');
+        setError({
+          type: 'warning',
+          message: `Unable to fetch property details: ${err.message}. Please enter information manually.`
+        });
         // Keep using default values
       } finally {
         setLoading(false);
@@ -297,8 +347,8 @@ const PropertyDetails = ({ address, onPropertyDetailsSubmit, onBack }) => {
       </InfoText>
       
       {error && (
-        <StatusMessage type="warning">
-          {error}
+        <StatusMessage type={error.type || "warning"}>
+          {error.message}
         </StatusMessage>
       )}
       
