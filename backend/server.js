@@ -200,7 +200,7 @@ app.post('/api/zuper', async (req, res) => {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
         // CRITICAL: Use the correct Authorization format
-        'Authorization': apiKey
+       'x-api-key': apiKey
       },
       timeout: 30000
     };
