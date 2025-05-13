@@ -173,7 +173,7 @@ app.post('/api/zuper', async (req, res) => {
   try {
     const { endpoint, method, params, data } = req.body;
 
-        // Enhanced logging
+    // Enhanced logging
     console.log(`\n===== ZUPER API REQUEST =====`);
     console.log(`Endpoint: ${endpoint}`);
     console.log(`Method: ${method}`);
@@ -213,7 +213,25 @@ app.post('/api/zuper', async (req, res) => {
       timeout: 30000
     };
 
-    // Detailed success logging
+     // Add query parameters if provided
+    if (params) {
+      requestConfig.params = params;
+    }
+    
+    // Add request body if provided
+    if (data) {
+      requestConfig.data = data;
+    }
+    
+    console.log('Request config:', {
+      method: requestConfig.method,
+      url: requestConfig.url
+    });
+    
+    // Make the request to Zuper API
+    const response = await axios(requestConfig);
+
+        // FIXED: Log the response AFTER receiving it
     console.log(`\n===== ZUPER API RESPONSE =====`);
     console.log(`Status: ${response.status}`);
     console.log(`Response Data: ${JSON.stringify(response.data, null, 2)}`);
@@ -233,24 +251,6 @@ app.post('/api/zuper', async (req, res) => {
       console.log(`Property Name: ${data?.property?.property_name}`);
       console.log(`For Customer ID: ${data?.property?.customer_id}`);
     }
-
-    // Add query parameters if provided
-    if (params) {
-      requestConfig.params = params;
-    }
-    
-    // Add request body if provided
-    if (data) {
-      requestConfig.data = data;
-    }
-    
-    console.log('Request config:', {
-      method: requestConfig.method,
-      url: requestConfig.url
-    });
-    
-    // Make the request to Zuper API
-    const response = await axios(requestConfig);
     
     // Return the response
     return res.json(response.data);
