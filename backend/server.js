@@ -172,6 +172,10 @@ app.post('/api/diagnose', async (req, res) => {
 app.post('/api/zuper', async (req, res) => {
   try {
     const { endpoint, method, params, data } = req.body;
+
+        // Enhanced logging
+    console.log(`Zuper API request to ${endpoint}:`);
+    console.log('Request data:', JSON.stringify(data, null, 2));
     
     // Get API key from environment
     const apiKey = process.env.ZUPER_API_KEY;
