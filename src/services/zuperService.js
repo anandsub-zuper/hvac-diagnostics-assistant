@@ -1,4 +1,4 @@
-// Updated zuperService.js with corrected field names for Zuper API
+// src/services/zuperService.js - Fixed version
 
 import axios from 'axios';
 
@@ -22,6 +22,10 @@ class ZuperService {
    */
   async makeProxiedRequest(endpoint, method = 'GET', params = null, data = null) {
     try {
+      console.log(`Making proxied request to ${endpoint} with method ${method}`);
+      console.log('Request params:', params);
+      console.log('Request data:', JSON.stringify(data, null, 2));
+      
       const response = await axios.post(`${this.proxyUrl}/api/zuper`, {
         endpoint,
         method,
@@ -44,29 +48,30 @@ class ZuperService {
    */
   async searchCustomer(email, phone) {
     try {
-      // IMPROVED: Search for specific customer exactly matching email or phone
+      console.log(`Searching for customer with email: ${email} or phone: ${phone}`);
+      
+      // Start with email search if available
       if (email) {
-        console.log(`Searching for customer with email: ${email}`);
         try {
-          // Use a specific customer search endpoint if available, or use customer filter
+          // FIXED: Use the correct endpoint and query parameter format
           const emailResponse = await this.makeProxiedRequest(
-            'customers/search', // Change to actual Zuper search endpoint if different
-            'POST', 
-            null, 
-            { searchField: 'email', searchValue: email }
+            'customers', 
+            'GET', 
+            { 'filter.customer_email': email }
           );
-
+          
           console.log('Email search response:', emailResponse);
           
-          // CRITICAL: Check if we actually found a matching customer
+          // Check if we found matching customers
           if (emailResponse && 
               emailResponse.data && 
               Array.isArray(emailResponse.data) && 
               emailResponse.data.length > 0) {
             
-            // Verify the returned customer actually has the matching email
+            // Find exact match by email
             const matchingCustomer = emailResponse.data.find(
-              customer => customer.email && customer.email.toLowerCase() === email.toLowerCase()
+              customer => customer.customer_email && 
+                          customer.customer_email.toLowerCase() === email.toLowerCase()
             );
             
             if (matchingCustomer) {
@@ -78,32 +83,45 @@ class ZuperService {
           console.log('No customer found with matching email');
         } catch (emailError) {
           console.error('Error searching by email:', emailError);
-          // Fall through to try phone search
         }
       }
 
       // Try to find by phone if email search failed or no email provided
       if (phone) {
-        console.log(`Searching for customer with phone: ${phone}`);
         try {
+          // FIXED: Use the correct endpoint and query parameter format
           const phoneResponse = await this.makeProxiedRequest(
-            'customers/search', // Change to actual Zuper search endpoint if different
-            'POST',
-            null,
-            { searchField: 'phone', searchValue: phone }
+            'customers', 
+            'GET',
+            { 'filter.customer_phone': phone }
           );
           
           console.log('Phone search response:', phoneResponse);
           
-          // CRITICAL: Check if we actually found a matching customer
+          // Check if we found matching customers
           if (phoneResponse && 
               phoneResponse.data && 
               Array.isArray(phoneResponse.data) && 
               phoneResponse.data.length > 0) {
             
-            // Verify the returned customer actually has the matching phone
+            // Find customer with matching phone
             const matchingCustomer = phoneResponse.data.find(
-              customer => customer.phone && customer.phone.replace(/[^0-9]/g, '') === phone.replace(/[^0-9]/g, '')
+              customer => {
+                // Check all possible phone number fields
+                const customerPhone = customer.customer_phone || 
+                                     (customer.customer_contact_no && customer.customer_contact_no.mobile) ||
+                                     (customer.customer_contact_no && customer.customer_contact_no.work) ||
+                                     (customer.customer_contact_no && customer.customer_contact_no.home);
+                
+                if (!customerPhone) return false;
+                
+                // Strip non-numeric characters for comparison
+                const normalizedCustomerPhone = customerPhone.replace(/[^0-9]/g, '');
+                const normalizedSearchPhone = phone.replace(/[^0-9]/g, '');
+                
+                return normalizedCustomerPhone.includes(normalizedSearchPhone) ||
+                       normalizedSearchPhone.includes(normalizedCustomerPhone);
+              }
             );
             
             if (matchingCustomer) {
@@ -146,32 +164,57 @@ class ZuperService {
         return existingCustomer;
       }
       
-      // Format the customer data according to Zuper API requirements
-      // CORRECTED: Use the proper field names expected by Zuper API
+      // FIXED: Format the customer data according to Zuper API requirements
       const formattedCustomerData = {
-         customer: { 
-        // FIXED: Using the correct field names for the Zuper API
-        customer_first_name: customerData.firstName,
-        customer_last_name: customerData.lastName,
-        customer_email: customerData.email,
-        customer_phone: customerData.phone,
-        customer_company_name: customerData.companyName || '',
-        customer_notes: customerData.notes || '',
-        customer_type: customerData.customerType || 'residential',
-        customer_address: customerData.address ? {
-          address_line1: customerData.address.streetAddress,
-          address_line2: customerData.address.unit || '',
-          city: customerData.address.city,
-          state: customerData.address.state,
-          country: customerData.address.country || 'USA',
-          zip_code: customerData.address.zipCode
-        } : undefined
-         }
+        customer: {
+          customer_first_name: customerData.firstName,
+          customer_last_name: customerData.lastName,
+          customer_email: customerData.email,
+          customer_phone: customerData.phone,
+          customer_company_name: customerData.companyName || '',
+          customer_notes: customerData.notes || '',
+          customer_type: customerData.customerType || 'residential',
+          // Format address properly if available
+          customer_address: customerData.address ? {
+            street: `${customerData.address.streetAddress}`,
+            city: customerData.address.city,
+            state: customerData.address.state,
+            country: customerData.address.country || 'USA',
+            zip_code: customerData.address.zipCode,
+            first_name: customerData.firstName,
+            last_name: customerData.lastName,
+            phone_number: customerData.phone,
+            email: customerData.email,
+            // Add geo coordinates if available
+            geo_cordinates: customerData.address.latitude && customerData.address.longitude ? 
+              [customerData.address.latitude, customerData.address.longitude] : 
+              undefined
+          } : undefined,
+          // Copy the same address to billing address
+          customer_billing_address: customerData.address ? {
+            street: `${customerData.address.streetAddress}`,
+            city: customerData.address.city,
+            state: customerData.address.state,
+            country: customerData.address.country || 'USA',
+            zip_code: customerData.address.zipCode,
+            first_name: customerData.firstName,
+            last_name: customerData.lastName,
+            phone_number: customerData.phone,
+            email: customerData.email,
+            // Add geo coordinates if available
+            geo_cordinates: customerData.address.latitude && customerData.address.longitude ? 
+              [customerData.address.latitude, customerData.address.longitude] : 
+              undefined
+          } : undefined,
+          is_portal_enabled: false
+        }
       };
 
       console.log('Creating new customer with data:', JSON.stringify(formattedCustomerData, null, 2));
 
+      // FIXED: Use the correct endpoint for customer creation
       const response = await this.makeProxiedRequest('customers_new', 'POST', null, formattedCustomerData);
+      
       // IMPROVED: Better validation of successful customer creation
       if (!response) {
         throw new Error('Empty response from customer creation');
@@ -182,13 +225,23 @@ class ZuperService {
         throw new Error(`Customer creation failed: ${response.message || JSON.stringify(response.error)}`);
       }
       
-      if (!response.id) {
+      if (!response.id && !response.customer_id) {
         console.error('Customer creation response missing ID:', response);
         throw new Error('Customer creation failed: No ID returned');
       }
       
-      console.log('Customer created successfully with ID:', response.id);
-      return response;
+      // Extract customer ID from response
+      const customerId = response.id || response.customer_id;
+      console.log('Customer created successfully with ID:', customerId);
+      
+      // Return a standardized customer object
+      return {
+        id: customerId,
+        customer_first_name: customerData.firstName,
+        customer_last_name: customerData.lastName,
+        customer_email: customerData.email,
+        customer_phone: customerData.phone
+      };
     } catch (error) {
       console.error('Error creating customer in Zuper:', error);
       throw error;
@@ -203,32 +256,78 @@ class ZuperService {
    */
   async createProperty(customerId, propertyData) {
     try {
-      // Format the property data according to Zuper API requirements
+      // FIXED: Format the property data according to Zuper API requirements
       const formattedPropertyData = {
         property: {
           customer_id: customerId,
           property_name: propertyData.propertyName || 'Primary Property',
           property_type: propertyData.propertyType || 'residential',
           address: {
-            address_line1: propertyData.address.streetAddress,
-            address_line2: propertyData.address.unit || '',
+            street: propertyData.address.streetAddress,
             city: propertyData.address.city,
             state: propertyData.address.state,
             country: propertyData.address.country || 'USA',
-            zip_code: propertyData.address.zipCode
+            zip_code: propertyData.address.zipCode,
+            // Add coordinates if available
+            geo_cordinates: propertyData.address.latitude && propertyData.address.longitude ? 
+              [propertyData.address.latitude, propertyData.address.longitude] : 
+              undefined
           },
-          property_attributes: {
-            year_built: propertyData.attributes?.yearBuilt || '',
-            square_feet: propertyData.attributes?.squareFeet || '',
-            bedrooms: propertyData.attributes?.bedrooms || '',
-            bathrooms: propertyData.attributes?.bathrooms || '',
-            lot_size: propertyData.attributes?.lotSize || ''
-          }
+          custom_fields: [
+            // Format custom fields as an array of objects
+            {
+              label: "Year Built",
+              value: propertyData.attributes?.yearBuilt || ''
+            },
+            {
+              label: "Square Feet",
+              value: propertyData.attributes?.squareFeet || ''
+            },
+            {
+              label: "Bedrooms",
+              value: propertyData.attributes?.bedrooms || ''
+            },
+            {
+              label: "Bathrooms",
+              value: propertyData.attributes?.bathrooms || ''
+            },
+            {
+              label: "Lot Size",
+              value: propertyData.attributes?.lotSize || ''
+            }
+          ]
         }
       };
 
-      const response = await this.makeProxiedRequest('property', 'POST', null, formattedPropertyData);
-      return response.data;
+      console.log('Creating property with data:', JSON.stringify(formattedPropertyData, null, 2));
+
+      const response = await this.makeProxiedRequest('properties', 'POST', null, formattedPropertyData);
+      
+      // IMPROVED: Better validation of successful property creation
+      if (!response) {
+        throw new Error('Empty response from property creation');
+      }
+      
+      // Check for errors
+      if (response.error || response.message) {
+        throw new Error(`Property creation failed: ${response.message || JSON.stringify(response.error)}`);
+      }
+      
+      // Extract property ID
+      const propertyId = response.id || response.property_id;
+      if (!propertyId) {
+        console.error('Property creation response missing ID:', response);
+        throw new Error('Property creation failed: No ID returned');
+      }
+      
+      console.log('Property created successfully with ID:', propertyId);
+      
+      return {
+        id: propertyId,
+        property_name: formattedPropertyData.property.property_name,
+        property_type: formattedPropertyData.property.property_type,
+        customer_id: customerId
+      };
     } catch (error) {
       console.error('Error creating property in Zuper:', error);
       throw error;
@@ -242,28 +341,62 @@ class ZuperService {
    */
   async createAsset(assetData) {
     try {
-      // Format the asset data according to Zuper API requirements
+      // FIXED: Format the asset data according to Zuper API requirements
       const formattedAssetData = {
-        asset_name: assetData.name,
-        asset_type: assetData.type || 'HVAC',
-        model: assetData.model || '',
-        manufacturer: assetData.manufacturer || '',
-        serial_number: assetData.serialNumber || '',
-        status: assetData.status || 'active',
-        customer_id: assetData.customerId,
-        property_id: assetData.propertyId,
-        installation_date: assetData.installationDate || '',
-        warranty_expiry_date: assetData.warrantyExpiryDate || '',
-        notes: assetData.notes || '',
-        custom_fields: {
-          system_type: assetData.systemType || '',
-          tonnage: assetData.tonnage || '',
-          efficiency_rating: assetData.efficiencyRating || ''
+        asset: {
+          asset_name: assetData.name,
+          asset_type: assetData.type || 'HVAC',
+          model: assetData.model || '',
+          manufacturer: assetData.manufacturer || '',
+          serial_number: assetData.serialNumber || '',
+          status: assetData.status || 'active',
+          customer_id: assetData.customerId,
+          property_id: assetData.propertyId,
+          // Format dates properly
+          installation_date: assetData.installationDate ? new Date(assetData.installationDate).toISOString() : undefined,
+          warranty_expiry_date: assetData.warrantyExpiryDate ? new Date(assetData.warrantyExpiryDate).toISOString() : undefined,
+          notes: assetData.notes || '',
+          custom_fields: [
+            {
+              label: "System Type",
+              value: assetData.systemType || ''
+            },
+            {
+              label: "Tonnage",
+              value: assetData.tonnage || ''
+            },
+            {
+              label: "Efficiency Rating",
+              value: assetData.efficiencyRating || ''
+            }
+          ]
         }
       };
 
+      console.log('Creating asset with data:', JSON.stringify(formattedAssetData, null, 2));
+
       const response = await this.makeProxiedRequest('assets', 'POST', null, formattedAssetData);
-      return response.data;
+      
+      if (!response) {
+        throw new Error('Empty response from asset creation');
+      }
+      
+      // Extract asset ID
+      const assetId = response.id || response.asset_id;
+      if (!assetId) {
+        console.error('Asset creation response missing ID:', response);
+        throw new Error('Asset creation failed: No ID returned');
+      }
+      
+      console.log('Asset created successfully with ID:', assetId);
+      
+      return {
+        id: assetId,
+        name: assetData.name,
+        manufacturer: assetData.manufacturer,
+        model: assetData.model,
+        serialNumber: assetData.serialNumber
+      };
     } catch (error) {
       console.error('Error creating asset in Zuper:', error);
       throw error;
@@ -276,7 +409,8 @@ class ZuperService {
    */
   async getJobCategories() {
     try {
-      const response = await this.makeProxiedRequest('v1/job-categories', 'GET');
+      // FIXED: Use the correct endpoint for job categories
+      const response = await this.makeProxiedRequest('job-categories', 'GET');
       return response.data || [];
     } catch (error) {
       console.error('Error fetching job categories from Zuper:', error);
@@ -312,68 +446,65 @@ class ZuperService {
         ? diagnosticResult.possibleIssues.map(issue => `${issue.issue} (${issue.severity})`).join('; ')
         : '';
       
-      // Process due date
-      let dueDate = null;
-      if (jobData.dueDate) {
-        // Ensure due date is in ISO format
-        const dueDateObj = new Date(jobData.dueDate);
-        dueDate = dueDateObj.toISOString();
-      }
-      
-      // Format the job data
+      // Format the job data according to Zuper API
       const formattedJobData = {
-        customer_id: jobData.customerId,
-        property_id: jobData.propertyId,
-        assets: jobData.assetIds || [],
-        job_title: jobData.title || 'HVAC Service',
-        job_description: jobData.description || '',
-        job_category: jobData.jobCategory,
-        priority: jobData.priority || 'medium',
-        status: jobData.status || 'new',
-        due_date: dueDate,
-        custom_fields: {
-          diagnostic_result: diagnosticSummary,
-          required_parts: requiredParts,
-          repair_complexity: diagnosticResult.repairComplexity || '',
-          additional_notes: diagnosticResult.additionalNotes || ''
+        job: {
+          customer_id: jobData.customerId,
+          property_id: jobData.propertyId,
+          job_title: jobData.title || 'HVAC Service',
+          job_description: jobData.description || '',
+          job_category: jobData.jobCategory,
+          priority: jobData.priority || 'medium',
+          status: jobData.status || 'new',
+          due_date: jobData.dueDate ? new Date(jobData.dueDate).toISOString() : undefined,
+          assets: jobData.assetIds || [],
+          custom_fields: [
+            {
+              label: "Diagnostic Result",
+              value: diagnosticSummary
+            },
+            {
+              label: "Required Parts",
+              value: requiredParts
+            },
+            {
+              label: "Repair Complexity",
+              value: diagnosticResult.repairComplexity || ''
+            },
+            {
+              label: "Additional Notes",
+              value: diagnosticResult.additionalNotes || ''
+            }
+          ]
         }
       };
 
+      console.log('Creating job with data:', JSON.stringify(formattedJobData, null, 2));
+
       const response = await this.makeProxiedRequest('jobs', 'POST', null, formattedJobData);
-      return response.data;
+      
+      if (!response) {
+        throw new Error('Empty response from job creation');
+      }
+      
+      // Extract job ID
+      const jobId = response.id || response.job_id;
+      if (!jobId) {
+        console.error('Job creation response missing ID:', response);
+        throw new Error('Job creation failed: No ID returned');
+      }
+      
+      console.log('Job created successfully with ID:', jobId);
+      
+      return {
+        id: jobId,
+        title: jobData.title,
+        priority: jobData.priority,
+        status: jobData.status
+      };
     } catch (error) {
       console.error('Error creating job in Zuper:', error);
       throw error;
-    }
-  }
-
-  /**
-   * Get all properties for a customer
-   * @param {string} customerId - Zuper customer ID
-   * @returns {Promise<Array>} List of properties
-   */
-  async getCustomerProperties(customerId) {
-    try {
-      const response = await this.makeProxiedRequest('property', 'GET', { customer_id: customerId });
-      return response.data || [];
-    } catch (error) {
-      console.error('Error fetching customer properties from Zuper:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Get all assets for a property
-   * @param {string} propertyId - Zuper property ID
-   * @returns {Promise<Array>} List of assets
-   */
-  async getPropertyAssets(propertyId) {
-    try {
-      const response = await this.makeProxiedRequest('assets', 'GET', { property_id: propertyId });
-      return response.data || [];
-    } catch (error) {
-      console.error('Error fetching property assets from Zuper:', error);
-      return [];
     }
   }
 }
