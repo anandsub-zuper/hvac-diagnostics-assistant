@@ -1,4 +1,3 @@
-// src/services/rentcastService.js
 import axios from 'axios';
 
 /**
@@ -8,7 +7,7 @@ class RentcastService {
   constructor() {
     this.apiKey = process.env.REACT_APP_RENTCAST_API_KEY;
     this.baseUrl = 'https://api.rentcast.io/v1';
-    
+
     if (!this.apiKey) {
       console.warn('Rentcast API key is not configured');
     }
@@ -32,21 +31,21 @@ class RentcastService {
    */
   async getPropertyByAddress(address) {
     try {
-      // Create a complete address string
+      // Construct the address string
       const addressStr = `${address.streetNumber} ${address.street}, ${address.city}, ${address.state} ${address.zipCode}`;
-      
-      // Properly encode the address using encodeURIComponent
+
+      // Encode the address only once
       const encodedAddress = encodeURIComponent(addressStr);
-      
-      console.log('Querying Rentcast by address:', addressStr);
-      
-      // Use the correct endpoint: /properties (not /properties/search)
+
+      console.log('Querying Rentcast by address:', encodedAddress); // Log the encoded address
+
+      // Use the correct endpoint: /properties
       const response = await axios.get(
-        `${this.baseUrl}/properties`, 
+        `${this.baseUrl}/properties`,
         {
           headers: this.getHeaders(),
           params: {
-            address: encodedAddress
+            address: encodedAddress // Use the encoded address
           }
         }
       );
@@ -66,14 +65,14 @@ class RentcastService {
 
   /**
    * Get property details by latitude and longitude
-   * @param {number} latitude 
-   * @param {number} longitude 
+   * @param {number} latitude
+   * @param {number} longitude
    * @returns {Promise<Object>} Property details
    */
   async getPropertyByLocation(latitude, longitude) {
     try {
       console.log('Querying Rentcast by coordinates:', latitude, longitude);
-      
+
       // Use the correct endpoint with coordinates
       const response = await axios.get(
         `${this.baseUrl}/properties`,
@@ -115,12 +114,12 @@ class RentcastService {
           // Fall through to coordinate lookup
         }
       }
-      
+
       // Try by coordinates if available
       if (address.latitude && address.longitude) {
         return await this.getPropertyByLocation(address.latitude, address.longitude);
       }
-      
+
       // Try by zip code as a last resort
       if (address.zipCode) {
         try {
@@ -129,14 +128,14 @@ class RentcastService {
           console.log('ZIP code lookup failed:', zipError);
         }
       }
-      
+
       throw new Error('Insufficient address information to query Rentcast API');
     } catch (error) {
       console.error('All Rentcast lookup methods failed:', error);
       throw error;
     }
   }
-  
+
   /**
    * Get properties by ZIP code
    * @param {string} zipCode - ZIP code to search
@@ -145,7 +144,7 @@ class RentcastService {
   async getPropertiesByZipCode(zipCode) {
     try {
       console.log('Querying Rentcast by ZIP code:', zipCode);
-      
+
       const response = await axios.get(
         `${this.baseUrl}/properties`,
         {
