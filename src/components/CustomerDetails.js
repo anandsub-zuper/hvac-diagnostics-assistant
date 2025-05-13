@@ -1,4 +1,5 @@
-// src/components/CustomerDetails.js
+// Full updated CustomerDetails.js with fix for missing tenantInfo
+
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import zuperService from '../services/zuperService';
@@ -150,9 +151,10 @@ const CustomerDetails = ({ propertyData, onCustomerDetailsSubmit, onBack }) => {
   
   // Extract contact information from property data if available
   useEffect(() => {
-    if (propertyData && (propertyData.ownerInfo || propertyData.tenantInfo)) {
-      // Determine whether to use owner or tenant info as primary contact
-      const contactInfo = propertyData.tenantInfo.name ? propertyData.tenantInfo : propertyData.ownerInfo;
+    // FIXED: Updated to handle the absence of tenantInfo
+    if (propertyData && propertyData.ownerInfo) {
+      // Now we only use ownerInfo since tenantInfo was removed
+      const contactInfo = propertyData.ownerInfo;
       
       if (contactInfo.name) {
         // Split the name into first and last name
