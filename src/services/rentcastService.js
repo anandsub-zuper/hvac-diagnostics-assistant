@@ -26,18 +26,20 @@ class RentcastService {
 
   /**
    * Get property details by address
-   * @param {Object} address - Address object containing street, city, state, zipCode
+   * @param {Object} address - Address object containing street, city, state, zipCode, county, country
    * @returns {Promise<Object>} Property details
    */
   async getPropertyByAddress(address) {
     try {
-      // Construct the address string
-      const addressStr = `${address.streetNumber} ${address.street}, ${address.city}, ${address.state} ${address.zipCode}`;
+      // Construct a detailed address string
+      let addressStr = `${address.streetNumber} ${address.street}, ${address.city}, `;
+      addressStr += address.county ? `${address.county}, ` : ''; // Include county if available
+      addressStr += `${address.state}, ${address.zipCode}, ${address.country || 'United States'}`; // Default country
 
       // Encode the address only once
       const encodedAddress = encodeURIComponent(addressStr);
 
-      console.log('Querying Rentcast by address:', encodedAddress); // Log the encoded address
+      console.log('Querying Rentcast by address:', encodedAddress);
 
       // Use the correct endpoint: /properties
       const response = await axios.get(
@@ -45,7 +47,7 @@ class RentcastService {
         {
           headers: this.getHeaders(),
           params: {
-            address: encodedAddress // Use the encoded address
+            address: encodedAddress
           }
         }
       );
@@ -159,7 +161,7 @@ class RentcastService {
         throw new Error('No properties found for this ZIP code');
       }
 
-      // Return the first property in the ZIP code
+      // Return the first property in the results array
       return this.processPropertyData(response.data[0]);
     } catch (error) {
       console.error('Error fetching properties by ZIP code from Rentcast:', error);
