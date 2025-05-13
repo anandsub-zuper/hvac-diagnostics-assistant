@@ -26,15 +26,21 @@ class RentcastService {
 
   /**
    * Get property details by address
-   * @param {Object} address - Address object containing street, city, state, zipCode, county, country
+   * @param {Object} address - Address object containing streetNumber, street, city, state, zipCode, county, country
    * @returns {Promise<Object>} Property details
    */
   async getPropertyByAddress(address) {
     try {
-      // Construct a detailed address string
-      let addressStr = `${address.streetNumber} ${address.street}, ${address.city}, `;
-      addressStr += address.county ? `${address.county}, ` : ''; // Include county if available
-      addressStr += `${address.state}, ${address.zipCode}, ${address.country || 'United States'}`; // Default country
+      // Construct a detailed and precisely formatted address string
+      let addressStr = '';
+      if (address.streetNumber) addressStr += address.streetNumber + ' ';
+      if (address.street) addressStr += address.street + ', ';
+      if (address.city) addressStr += address.city + ', ';
+      if (address.county) addressStr += address.county + ', '; // Include county if available
+      if (address.state) addressStr += address.state + ', ';
+      if (address.zipCode) addressStr += address.zipCode;
+      if (address.country) addressStr += ', ' + address.country;
+      else addressStr += ', United States'; // Default country
 
       // Encode the address only once
       const encodedAddress = encodeURIComponent(addressStr);
@@ -161,7 +167,7 @@ class RentcastService {
         throw new Error('No properties found for this ZIP code');
       }
 
-      // Return the first property in the results array
+      // Return the first property in the ZIP code
       return this.processPropertyData(response.data[0]);
     } catch (error) {
       console.error('Error fetching properties by ZIP code from Rentcast:', error);
