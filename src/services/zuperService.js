@@ -97,8 +97,16 @@ class ZuperService {
         }
       };
 
+      console.log('Sending customer creation request with data:', JSON.stringify(formattedCustomerData, null, 2));
+
       const response = await this.makeProxiedRequest('customers_new', 'POST', null, formattedCustomerData);
-      return response.data;
+      if (!response || !response.id) {
+      console.error('Customer creation response missing ID:', response);
+      throw new Error('Customer creation failed: No ID returned');
+    }
+    
+    console.log('Customer created successfully with ID:', response.id);
+     return response;
     } catch (error) {
       console.error('Error creating customer in Zuper:', error);
       throw error;
