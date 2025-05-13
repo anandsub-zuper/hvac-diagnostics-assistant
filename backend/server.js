@@ -176,27 +176,36 @@ app.post('/api/zuper', async (req, res) => {
     // Get API key from environment
     const apiKey = process.env.ZUPER_API_KEY;
     if (!apiKey) {
+      console.error('ZUPER_API_KEY environment variable not set');
       return res.status(500).json({ error: 'API key not configured' });
     }
     
     // Determine region
     const region = process.env.ZUPER_REGION || 'us';
+    
+    // CORRECTED: Use the proper base URL format you provided
     const baseUrl = `https://${region}.zuperpro.com/api`;
     
-    console.log(`Proxying ${method} request to ${baseUrl}/${endpoint}`);
+    // Ensure endpoint doesn't start with a slash since the baseUrl already ends with /api
+    const formattedEndpoint = endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
+    const fullUrl = `${baseUrl}/${formattedEndpoint}`;
     
-    // Configure request
+    console.log(`Proxying ${method} request to ${fullUrl}`);
+    
+    // Configure request with proper headers
     const requestConfig = {
       method: method || 'GET',
-      url: `${baseUrl}/${endpoint}`,
+      url: fullUrl,
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        // CRITICAL: Use the correct Authorization format
         'Authorization': `Bearer ${apiKey}`
       },
-      timeout: 30000 // 30 second timeout
+      timeout: 30000
     };
-        // Add query parameters if provided
+    
+    // Add query parameters if provided
     if (params) {
       requestConfig.params = params;
     }
@@ -206,29 +215,42 @@ app.post('/api/zuper', async (req, res) => {
       requestConfig.data = data;
     }
     
+    console.log('Request config:', {
+      method: requestConfig.method,
+      url: requestConfig.url
+    });
+    
     // Make the request to Zuper API
     const response = await axios(requestConfig);
     
     // Return the response
-    res.json(response.data);
+    return res.json(response.data);
   } catch (error) {
-    console.error('Error proxying request to Zuper API:', error);
+    console.error('Error proxying request to Zuper API:', error.message);
     
     if (error.response) {
       // The request was made and the server responded with a status code
       // that falls out of the range of 2xx
+      console.error('Error details:', {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: JSON.stringify(error.response.data).substring(0, 500) // Limit log size
+      });
+      
       return res.status(error.response.status).json({
         error: 'Zuper API error',
         details: error.response.data
       });
     } else if (error.request) {
       // The request was made but no response was received
+      console.error('No response received');
       return res.status(504).json({
         error: 'Zuper API timeout',
         message: 'No response received from Zuper API'
       });
     } else {
       // Something happened in setting up the request that triggered an Error
+      console.error('Request setup error:', error.message);
       return res.status(500).json({
         error: 'Request configuration error',
         message: error.message
