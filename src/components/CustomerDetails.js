@@ -1,4 +1,4 @@
-// Complete fixed version of src/components/CustomerDetails.js
+// src/components/CustomerDetails.js - Fixed version
 
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
@@ -168,7 +168,7 @@ const CustomerDetails = ({ propertyData, onCustomerDetailsSubmit, onBack }) => {
           phone: contactInfo.phone || ''
         }));
         
-        // If we have an email or phone, try to search for existing customer in Zuper
+        // If we have an email or phone, try to search for existing customer
         if (contactInfo.email || contactInfo.phone) {
           searchForExistingCustomer(contactInfo.email, contactInfo.phone);
         }
@@ -176,15 +176,17 @@ const CustomerDetails = ({ propertyData, onCustomerDetailsSubmit, onBack }) => {
     }
   }, [propertyData]);
   
-  // Search for existing customer in Zuper with improved handling
+  // Improved search for existing customer
   const searchForExistingCustomer = async (email, phone) => {
     if (!email && !phone) return;
     
     setSearching(true);
-    setError(null); // Clear any previous errors
+    setError(null);
     
     try {
-      // Added timeout to ensure UI feedback for the search
+      console.log('Searching for existing customer with:', { email, phone });
+      
+      // Set a timeout for UI feedback
       const searchTimeout = setTimeout(() => {
         if (searching) {
           console.log('Customer search is taking longer than expected...');
@@ -199,38 +201,31 @@ const CustomerDetails = ({ propertyData, onCustomerDetailsSubmit, onBack }) => {
         // Found existing customer - update state with their info
         console.log('Found existing customer:', existingCustomer);
         
-        // Make sure we're getting valid data
-        if (existingCustomer.first_name || existingCustomer.last_name || 
-            existingCustomer.email || existingCustomer.phone) {
-          
-          setCustomerData({
-            firstName: existingCustomer.first_name || '',
-            lastName: existingCustomer.last_name || '',
-            email: existingCustomer.email || email || '',
-            phone: existingCustomer.phone || phone || '',
-            companyName: existingCustomer.company_name || '',
-            notes: existingCustomer.notes || '',
-            customerType: existingCustomer.customer_type || 'residential',
-            existingCustomerId: existingCustomer.id
-          });
-          
-          // Show success message
-          setError({
-            type: 'success',
-            message: 'Found existing customer in our records. Information has been pre-filled.'
-          });
-        } else {
-          console.warn('Found customer but with incomplete data:', existingCustomer);
-          // Don't show success message if data is incomplete
-        }
+        // Extract the customer data - properly handling different field formats
+        setCustomerData({
+          firstName: existingCustomer.customer_first_name || existingCustomer.first_name || '',
+          lastName: existingCustomer.customer_last_name || existingCustomer.last_name || '',
+          email: existingCustomer.customer_email || existingCustomer.email || email || '',
+          phone: existingCustomer.customer_phone || existingCustomer.phone || phone || '',
+          companyName: existingCustomer.customer_company_name || existingCustomer.company_name || '',
+          notes: existingCustomer.customer_notes || existingCustomer.notes || '',
+          customerType: existingCustomer.customer_type || existingCustomer.type || 'residential',
+          existingCustomerId: existingCustomer.id || existingCustomer.customer_id
+        });
+        
+        // Show success message
+        setError({
+          type: 'success',
+          message: 'Found existing customer in our records. Information has been pre-filled.'
+        });
       } else {
         // No existing customer found - we'll create a new one later
         console.log('No existing customer found with email:', email, 'or phone:', phone);
-        // Don't show any message to the user - just continue with form
       }
     } catch (err) {
       console.error('Error searching for customer:', err);
-      // Show a non-blocking error
+      
+      // Show a non-blocking warning
       setError({
         type: 'warning',
         message: 'There was an issue checking for existing customers. You can continue with form submission.'
@@ -278,8 +273,18 @@ const CustomerDetails = ({ propertyData, onCustomerDetailsSubmit, onBack }) => {
     // Prepare the complete customer data
     const completeCustomerData = {
       ...customerData,
-      // Include property address
-      address: propertyData.address
+      // Include property address - making sure it's properly formatted
+      address: propertyData.address ? {
+        streetAddress: propertyData.address.streetAddress || 
+                      (propertyData.address.formattedAddress || ''),
+        unit: propertyData.address.unit || '',
+        city: propertyData.address.city || '',
+        state: propertyData.address.state || '',
+        zipCode: propertyData.address.zipCode || '',
+        country: propertyData.address.country || 'USA',
+        latitude: propertyData.address.latitude || null,
+        longitude: propertyData.address.longitude || null
+      } : null
     };
     
     // Pass the customer data up to the parent component
@@ -411,6 +416,12 @@ const CustomerDetails = ({ propertyData, onCustomerDetailsSubmit, onBack }) => {
             style={{ minHeight: '80px' }}
           />
         </FormGroup>
+        
+        {customerData.existingCustomerId && (
+          <StatusMessage type="info">
+            Using existing customer record ID: {customerData.existingCustomerId}
+          </StatusMessage>
+        )}
       </CustomerCard>
       
       <ButtonContainer>
