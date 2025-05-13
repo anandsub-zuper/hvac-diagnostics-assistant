@@ -168,6 +168,74 @@ app.post('/api/diagnose', async (req, res) => {
   }
 });
 
+app.post('/api/zuper', async (req, res) => {
+  try {
+    const { endpoint, method, params, data } = req.body;
+    
+    // Get API key from environment
+    const apiKey = process.env.ZUPER_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'API key not configured' });
+    }
+    
+    // Determine region
+    const region = process.env.ZUPER_REGION || 'us';
+    const baseUrl = `https://${region}.zuperpro.com/api`;
+    
+    console.log(`Proxying ${method} request to ${baseUrl}/${endpoint}`);
+    
+    // Configure request
+    const requestConfig = {
+      method: method || 'GET',
+      url: `${baseUrl}/${endpoint}`,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      timeout: 30000 // 30 second timeout
+    };
+        // Add query parameters if provided
+    if (params) {
+      requestConfig.params = params;
+    }
+    
+    // Add request body if provided
+    if (data) {
+      requestConfig.data = data;
+    }
+    
+    // Make the request to Zuper API
+    const response = await axios(requestConfig);
+    
+    // Return the response
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error proxying request to Zuper API:', error);
+    
+    if (error.response) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      return res.status(error.response.status).json({
+        error: 'Zuper API error',
+        details: error.response.data
+      });
+    } else if (error.request) {
+      // The request was made but no response was received
+      return res.status(504).json({
+        error: 'Zuper API timeout',
+        message: 'No response received from Zuper API'
+      });
+    } else {
+      // Something happened in setting up the request that triggered an Error
+      return res.status(500).json({
+        error: 'Request configuration error',
+        message: error.message
+      });
+    }
+  }
+});
+
 // ENHANCED image analysis endpoint
 app.post('/api/analyze-image', async (req, res) => {
   try {
