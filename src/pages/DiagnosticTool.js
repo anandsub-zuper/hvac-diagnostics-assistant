@@ -245,9 +245,9 @@ const DiagnosticTool = ({ isOnline, diagnosticData, setDiagnosticData }) => {
           customerId,
           propertyId: createdProperty.id
         });
-      console.log('Zuper integration complete');
-      console.log('Customer ID:', customerId);
-      console.log('Property ID:', propertyId);
+        console.log('Zuper integration complete');
+        console.log('Customer ID:', customerId);
+        console.log('Property ID:', createdProperty.id); // FIXED: Use createdProperty.id instead of propertyId
       } catch (err) {
         console.error('Error with Zuper integration:', err);
         console.error('Error creating customer/property in Zuper:', err);
