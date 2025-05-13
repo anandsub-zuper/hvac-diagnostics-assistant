@@ -1,30 +1,38 @@
-// src/services/zuperService.js
+// Updated zuperService.js to use the Heroku backend API
 import axios from 'axios';
 
 /**
- * Service for interacting with Zuper API
+ * Service for interacting with Zuper API through the backend proxy
  */
 class ZuperService {
   constructor() {
-    this.apiKey = process.env.REACT_APP_ZUPER_API_KEY;
-    this.region = process.env.REACT_APP_ZUPER_REGION || 'us';
-    this.baseUrl = `https://${this.region}.zuperpro.com/api`;
-    
-    if (!this.apiKey) {
-      console.warn('Zuper API key is not configured');
-    }
+    // URL to the backend proxy
+    this.proxyUrl = process.env.REACT_APP_BACKEND_URL || 'https://hvac-api-proxy.herokuapp.com';
+    console.log('Using backend proxy URL:', this.proxyUrl);
   }
 
   /**
-   * Get authorization headers for API requests
-   * @returns {Object} Headers object
+   * Make a proxied API request through the backend
+   * @param {string} endpoint - API endpoint path (without the base URL)
+   * @param {string} method - HTTP method (GET, POST, etc.)
+   * @param {object} params - Query parameters
+   * @param {object} data - Request body data
+   * @returns {Promise} - Promise with the API response
    */
-  getHeaders() {
-    return {
-      'accept': 'application/json',
-      'content-type': 'application/json',
-      'Authorization': `Bearer ${this.apiKey}`
-    };
+  async makeProxiedRequest(endpoint, method = 'GET', params = null, data = null) {
+    try {
+      const response = await axios.post(`${this.proxyUrl}/api/zuper`, {
+        endpoint,
+        method,
+        params,
+        data
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error(`Error making proxied request to ${endpoint}:`, error);
+      throw error;
+    }
   }
 
   /**
@@ -37,35 +45,19 @@ class ZuperService {
     try {
       // Try to find by email first
       if (email) {
-        const emailResponse = await axios.get(
-          `${this.baseUrl}/v1/customers`,
-          {
-            headers: this.getHeaders(),
-            params: {
-              email
-            }
-          }
-        );
+        const emailResponse = await this.makeProxiedRequest('v1/customers', 'GET', { email });
 
-        if (emailResponse.data.data && emailResponse.data.data.length > 0) {
-          return emailResponse.data.data[0];
+        if (emailResponse.data && emailResponse.data.length > 0) {
+          return emailResponse.data[0];
         }
       }
 
       // Try to find by phone if email search failed
       if (phone) {
-        const phoneResponse = await axios.get(
-          `${this.baseUrl}/v1/customers`,
-          {
-            headers: this.getHeaders(),
-            params: {
-              phone
-            }
-          }
-        );
+        const phoneResponse = await this.makeProxiedRequest('v1/customers', 'GET', { phone });
 
-        if (phoneResponse.data.data && phoneResponse.data.data.length > 0) {
-          return phoneResponse.data.data[0];
+        if (phoneResponse.data && phoneResponse.data.length > 0) {
+          return phoneResponse.data[0];
         }
       }
 
@@ -103,15 +95,8 @@ class ZuperService {
         } : undefined
       };
 
-      const response = await axios.post(
-        `${this.baseUrl}/v1/customers`,
-        formattedCustomerData,
-        {
-          headers: this.getHeaders()
-        }
-      );
-
-      return response.data.data;
+      const response = await this.makeProxiedRequest('v1/customers', 'POST', null, formattedCustomerData);
+      return response.data;
     } catch (error) {
       console.error('Error creating customer in Zuper:', error);
       throw error;
@@ -148,15 +133,8 @@ class ZuperService {
         }
       };
 
-      const response = await axios.post(
-        `${this.baseUrl}/v1/properties`,
-        formattedPropertyData,
-        {
-          headers: this.getHeaders()
-        }
-      );
-
-      return response.data.data;
+      const response = await this.makeProxiedRequest('v1/properties', 'POST', null, formattedPropertyData);
+      return response.data;
     } catch (error) {
       console.error('Error creating property in Zuper:', error);
       throw error;
@@ -190,15 +168,8 @@ class ZuperService {
         }
       };
 
-      const response = await axios.post(
-        `${this.baseUrl}/v1/assets`,
-        formattedAssetData,
-        {
-          headers: this.getHeaders()
-        }
-      );
-
-      return response.data.data;
+      const response = await this.makeProxiedRequest('v1/assets', 'POST', null, formattedAssetData);
+      return response.data;
     } catch (error) {
       console.error('Error creating asset in Zuper:', error);
       throw error;
@@ -211,14 +182,8 @@ class ZuperService {
    */
   async getJobCategories() {
     try {
-      const response = await axios.get(
-        `${this.baseUrl}/v1/job-categories`,
-        {
-          headers: this.getHeaders()
-        }
-      );
-
-      return response.data.data || [];
+      const response = await this.makeProxiedRequest('v1/job-categories', 'GET');
+      return response.data || [];
     } catch (error) {
       console.error('Error fetching job categories from Zuper:', error);
       return [];
@@ -232,7 +197,7 @@ class ZuperService {
    */
   async createJob(jobData) {
     try {
-      // Extract required parts from diagnostic result
+      // Extract diagnostic result
       let diagnosticResult = {};
       try {
         if (typeof jobData.diagnosticResult === 'string') {
@@ -244,11 +209,11 @@ class ZuperService {
         console.error('Error parsing diagnostic result:', e);
       }
       
+      // Format for custom fields
       const requiredParts = diagnosticResult.requiredItems && diagnosticResult.requiredItems.length > 0
         ? diagnosticResult.requiredItems.join(', ')
         : '';
         
-      // Format the diagnostic summary for custom fields
       const diagnosticSummary = diagnosticResult.possibleIssues && diagnosticResult.possibleIssues.length > 0
         ? diagnosticResult.possibleIssues.map(issue => `${issue.issue} (${issue.severity})`).join('; ')
         : '';
@@ -261,7 +226,7 @@ class ZuperService {
         dueDate = dueDateObj.toISOString();
       }
       
-      // Format the job data according to Zuper API requirements
+      // Format the job data
       const formattedJobData = {
         customer_id: jobData.customerId,
         property_id: jobData.propertyId,
@@ -280,15 +245,8 @@ class ZuperService {
         }
       };
 
-      const response = await axios.post(
-        `${this.baseUrl}/v1/jobs`,
-        formattedJobData,
-        {
-          headers: this.getHeaders()
-        }
-      );
-
-      return response.data.data;
+      const response = await this.makeProxiedRequest('v1/jobs', 'POST', null, formattedJobData);
+      return response.data;
     } catch (error) {
       console.error('Error creating job in Zuper:', error);
       throw error;
@@ -302,17 +260,8 @@ class ZuperService {
    */
   async getCustomerProperties(customerId) {
     try {
-      const response = await axios.get(
-        `${this.baseUrl}/v1/properties`,
-        {
-          headers: this.getHeaders(),
-          params: {
-            customer_id: customerId
-          }
-        }
-      );
-
-      return response.data.data || [];
+      const response = await this.makeProxiedRequest('v1/properties', 'GET', { customer_id: customerId });
+      return response.data || [];
     } catch (error) {
       console.error('Error fetching customer properties from Zuper:', error);
       return [];
@@ -326,17 +275,8 @@ class ZuperService {
    */
   async getPropertyAssets(propertyId) {
     try {
-      const response = await axios.get(
-        `${this.baseUrl}/v1/assets`,
-        {
-          headers: this.getHeaders(),
-          params: {
-            property_id: propertyId
-          }
-        }
-      );
-
-      return response.data.data || [];
+      const response = await this.makeProxiedRequest('v1/assets', 'GET', { property_id: propertyId });
+      return response.data || [];
     } catch (error) {
       console.error('Error fetching property assets from Zuper:', error);
       return [];
