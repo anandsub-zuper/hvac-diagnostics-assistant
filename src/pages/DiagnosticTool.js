@@ -220,12 +220,22 @@ const DiagnosticTool = ({ isOnline, diagnosticData, setDiagnosticData }) => {
       try {
         // Check if we have an existing customer ID
         let customerId = customer.existingCustomerId;
+        console.log("Initial customer ID (from existing):", customerId);
 
         // If no existing customer, create one
         if (!customerId) {
+          console.log('Creating new customer:', customer.firstName, customer.lastName);
           const createdCustomer = await zuperService.createCustomer(customer);
+           console.log('Customer creation response:', createdCustomer);
           customerId = createdCustomer.id;
         }
+
+        if (!customerId) {
+          console.error('Failed to get customer ID from response');
+          throw new Error('Customer creation did not return an ID');
+        }
+
+         console.log('New customer created with ID:', customerId);
 
         // Create property for the customer
         const createdProperty = await zuperService.createProperty(customerId, propertyData);
@@ -242,6 +252,18 @@ const DiagnosticTool = ({ isOnline, diagnosticData, setDiagnosticData }) => {
         setIsLoading(false);
       }
     }
+
+    console.log('Zuper integration complete');
+      console.log('Customer ID:', customerId);
+      console.log('Property ID:', propertyId);
+    } catch (err) {
+      console.error('Error with Zuper integration:', err);
+      // Log the full error for debugging
+      console.error('Full error details:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
     // Continue to HVAC system type selection
     setCurrentStep(STEPS.SYSTEM_TYPE);
