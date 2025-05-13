@@ -26,12 +26,12 @@ class RentcastService {
 
   /**
    * Get property details by address
-   * @param {Object} address - Address object containing streetNumber, street, city, state, zipCode, county, country
+   * @param {Object} address - Address object containing streetNumber, street, city, state, zipCode, country
    * @returns {Promise<Object>} Property details
    */
   async getPropertyByAddress(address) {
     try {
-      // Construct a detailed and precisely formatted address string
+      // Construct a detailed address string
       let addressStr = '';
       if (address.streetNumber) addressStr += address.streetNumber + ' ';
       if (address.street) addressStr += address.street + ', ';
@@ -42,7 +42,7 @@ class RentcastService {
       if (address.country) addressStr += ', ' + address.country;
       else addressStr += ', United States'; // Default country
 
-      // Encode the address only once
+      // Encode the address *only once*
       const encodedAddress = encodeURIComponent(addressStr);
 
       console.log('Querying Rentcast by address:', encodedAddress);
@@ -53,7 +53,7 @@ class RentcastService {
         {
           headers: this.getHeaders(),
           params: {
-            address: encodedAddress
+            address: encodedAddress // Use the correctly encoded address
           }
         }
       );
