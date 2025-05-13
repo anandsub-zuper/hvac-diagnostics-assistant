@@ -1,4 +1,5 @@
-// Updated zuperService.js to use the Heroku backend API
+// Fixed zuperService.js with improved customer search
+
 import axios from 'axios';
 
 /**
@@ -43,25 +44,82 @@ class ZuperService {
    */
   async searchCustomer(email, phone) {
     try {
-      // Try to find by email first
+      // IMPROVED: Search for specific customer exactly matching email or phone
       if (email) {
-        const emailResponse = await this.makeProxiedRequest('customers', 'GET', { email });
+        console.log(`Searching for customer with email: ${email}`);
+        try {
+          // Use a specific customer search endpoint if available, or use customer filter
+          const emailResponse = await this.makeProxiedRequest(
+            'customers/search', // Change to actual Zuper search endpoint if different
+            'POST', 
+            null, 
+            { searchField: 'email', searchValue: email }
+          );
 
-        if (emailResponse.data && emailResponse.data.length > 0) {
-          return emailResponse.data[0];
+          console.log('Email search response:', emailResponse);
+          
+          // CRITICAL: Check if we actually found a matching customer
+          if (emailResponse && 
+              emailResponse.data && 
+              Array.isArray(emailResponse.data) && 
+              emailResponse.data.length > 0) {
+            
+            // Verify the returned customer actually has the matching email
+            const matchingCustomer = emailResponse.data.find(
+              customer => customer.email && customer.email.toLowerCase() === email.toLowerCase()
+            );
+            
+            if (matchingCustomer) {
+              console.log('Found customer by email:', matchingCustomer.id);
+              return matchingCustomer;
+            }
+          }
+          
+          console.log('No customer found with matching email');
+        } catch (emailError) {
+          console.error('Error searching by email:', emailError);
+          // Fall through to try phone search
         }
       }
 
-      // Try to find by phone if email search failed
+      // Try to find by phone if email search failed or no email provided
       if (phone) {
-        const phoneResponse = await this.makeProxiedRequest('customers', 'GET', { phone });
-
-        if (phoneResponse.data && phoneResponse.data.length > 0) {
-          return phoneResponse.data[0];
+        console.log(`Searching for customer with phone: ${phone}`);
+        try {
+          const phoneResponse = await this.makeProxiedRequest(
+            'customers/search', // Change to actual Zuper search endpoint if different
+            'POST',
+            null,
+            { searchField: 'phone', searchValue: phone }
+          );
+          
+          console.log('Phone search response:', phoneResponse);
+          
+          // CRITICAL: Check if we actually found a matching customer
+          if (phoneResponse && 
+              phoneResponse.data && 
+              Array.isArray(phoneResponse.data) && 
+              phoneResponse.data.length > 0) {
+            
+            // Verify the returned customer actually has the matching phone
+            const matchingCustomer = phoneResponse.data.find(
+              customer => customer.phone && customer.phone.replace(/[^0-9]/g, '') === phone.replace(/[^0-9]/g, '')
+            );
+            
+            if (matchingCustomer) {
+              console.log('Found customer by phone:', matchingCustomer.id);
+              return matchingCustomer;
+            }
+          }
+          
+          console.log('No customer found with matching phone');
+        } catch (phoneError) {
+          console.error('Error searching by phone:', phoneError);
         }
       }
 
-      // No customer found
+      // No customer found with matching email or phone
+      console.log('No matching customer found - will create new customer');
       return null;
     } catch (error) {
       console.error('Error searching for customer in Zuper:', error);
@@ -76,43 +134,56 @@ class ZuperService {
    */
   async createCustomer(customerData) {
     try {
+      // First, check if customer already exists
+      let existingCustomer = null;
+      if (customerData.email || customerData.phone) {
+        existingCustomer = await this.searchCustomer(customerData.email, customerData.phone);
+      }
+      
+      // If customer already exists, return that customer
+      if (existingCustomer) {
+        console.log('Using existing customer:', existingCustomer.id);
+        return existingCustomer;
+      }
+      
       // Format the customer data according to Zuper API requirements
       const formattedCustomerData = {
         customer: {
-        first_name: customerData.firstName,
-        last_name: customerData.lastName,
-        email: customerData.email,
-        phone: customerData.phone,
-        company_name: customerData.companyName || '',
-        notes: customerData.notes || '',
-        customer_type: customerData.customerType || 'residential',
-        address: customerData.address ? {
-          address_line1: customerData.address.streetAddress,
-          address_line2: customerData.address.unit || '',
-          city: customerData.address.city,
-          state: customerData.address.state,
-          country: customerData.address.country || 'USA',
-          zip_code: customerData.address.zipCode
-        } : undefined
+          first_name: customerData.firstName,
+          last_name: customerData.lastName,
+          email: customerData.email,
+          phone: customerData.phone,
+          company_name: customerData.companyName || '',
+          notes: customerData.notes || '',
+          customer_type: customerData.customerType || 'residential',
+          address: customerData.address ? {
+            address_line1: customerData.address.streetAddress,
+            address_line2: customerData.address.unit || '',
+            city: customerData.address.city,
+            state: customerData.address.state,
+            country: customerData.address.country || 'USA',
+            zip_code: customerData.address.zipCode
+          } : undefined
         }
       };
 
-      console.log('Sending customer creation request with data:', JSON.stringify(formattedCustomerData, null, 2));
+      console.log('Creating new customer with data:', JSON.stringify(formattedCustomerData, null, 2));
 
       const response = await this.makeProxiedRequest('customers_new', 'POST', null, formattedCustomerData);
       if (!response || !response.id) {
-      console.error('Customer creation response missing ID:', response);
-      throw new Error('Customer creation failed: No ID returned');
-    }
-    
-    console.log('Customer created successfully with ID:', response.id);
-     return response;
+        console.error('Customer creation response missing ID:', response);
+        throw new Error('Customer creation failed: No ID returned');
+      }
+      
+      console.log('Customer created successfully with ID:', response.id);
+      return response;
     } catch (error) {
       console.error('Error creating customer in Zuper:', error);
       throw error;
     }
   }
 
+  // Rest of the service methods remain the same...
   /**
    * Create a property for a customer in Zuper
    * @param {string} customerId - Zuper customer ID
@@ -124,24 +195,24 @@ class ZuperService {
       // Format the property data according to Zuper API requirements
       const formattedPropertyData = {
         property: {
-        customer_id: customerId,
-        property_name: propertyData.propertyName || 'Primary Property',
-        property_type: propertyData.propertyType || 'residential',
-        address: {
-          address_line1: propertyData.address.streetAddress,
-          address_line2: propertyData.address.unit || '',
-          city: propertyData.address.city,
-          state: propertyData.address.state,
-          country: propertyData.address.country || 'USA',
-          zip_code: propertyData.address.zipCode
-        },
-        property_attributes: {
-          year_built: propertyData.attributes?.yearBuilt || '',
-          square_feet: propertyData.attributes?.squareFeet || '',
-          bedrooms: propertyData.attributes?.bedrooms || '',
-          bathrooms: propertyData.attributes?.bathrooms || '',
-          lot_size: propertyData.attributes?.lotSize || ''
-        }
+          customer_id: customerId,
+          property_name: propertyData.propertyName || 'Primary Property',
+          property_type: propertyData.propertyType || 'residential',
+          address: {
+            address_line1: propertyData.address.streetAddress,
+            address_line2: propertyData.address.unit || '',
+            city: propertyData.address.city,
+            state: propertyData.address.state,
+            country: propertyData.address.country || 'USA',
+            zip_code: propertyData.address.zipCode
+          },
+          property_attributes: {
+            year_built: propertyData.attributes?.yearBuilt || '',
+            square_feet: propertyData.attributes?.squareFeet || '',
+            bedrooms: propertyData.attributes?.bedrooms || '',
+            bathrooms: propertyData.attributes?.bathrooms || '',
+            lot_size: propertyData.attributes?.lotSize || ''
+          }
         }
       };
 
