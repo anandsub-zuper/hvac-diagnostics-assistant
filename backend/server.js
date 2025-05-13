@@ -1,8 +1,9 @@
-// server.js - Complete file with fixed diagnosis endpoint AND enhanced image analysis
+// server.js - Complete updated file with Zuper API integration fixes
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios'); 
 const { OpenAI } = require('openai');
+const zuperHandler = require('./zuper-handler');
 require('dotenv').config();
 
 const app = express();
@@ -169,160 +170,6 @@ app.post('/api/diagnose', async (req, res) => {
   }
 });
 
-// Updated server.js Zuper API endpoint with better error handling
-
-app.post('/api/zuper', async (req, res) => {
-  try {
-    const { endpoint, method, params, data } = req.body;
-
-    // Enhanced logging
-    console.log(`\n===== ZUPER API REQUEST =====`);
-    console.log(`Endpoint: ${endpoint}`);
-    console.log(`Method: ${method}`);
-    console.log(`Params: ${JSON.stringify(params)}`);
-    console.log(`Data: ${JSON.stringify(data, null, 2)}`);
-    console.log(`===========================\n`);
-    
-    // Get API key from environment
-    const apiKey = process.env.ZUPER_API_KEY;
-    if (!apiKey) {
-      console.error('ZUPER_API_KEY environment variable not set');
-      return res.status(500).json({ error: 'API key not configured' });
-    }
-    
-    // Determine region
-    const region = process.env.ZUPER_REGION || 'us';
-    
-    // CORRECTED: Use the proper base URL format
-    const baseUrl = `https://${region}.zuperpro.com/api`;
-    
-    // Ensure endpoint doesn't start with a slash since the baseUrl already ends with /api
-    const formattedEndpoint = endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
-    const fullUrl = `${baseUrl}/${formattedEndpoint}`;
-    
-    console.log(`Proxying ${method} request to ${fullUrl}`);
-    
-    // Configure request with proper headers
-    const requestConfig = {
-      method: method || 'GET',
-      url: fullUrl,
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        // CRITICAL: Use the correct Authorization format
-        'x-api-key': apiKey
-      },
-      timeout: 30000
-    };
-
-    // Add query parameters if provided
-    if (params) {
-      requestConfig.params = params;
-    }
-    
-    // Add request body if provided
-    if (data) {
-      requestConfig.data = data;
-    }
-    
-    console.log('Request config:', {
-      method: requestConfig.method,
-      url: requestConfig.url
-    });
-    
-    // Make the request to Zuper API
-    // IMPORTANT: Make the request BEFORE trying to log its response
-    const response = await axios(requestConfig);
-    
-    // FIXED: Only now, after we have the response, we can log it
-    console.log(`\n===== ZUPER API RESPONSE =====`);
-    console.log(`Status: ${response.status}`);
-    console.log(`Response Data: ${JSON.stringify(response.data, null, 2)}`);
-    console.log(`============================\n`);
-
-    // IMPROVED: Better validation for customer creation responses
-    if (endpoint === 'customers_new') {
-      // Check if the response contains error messages despite 200 status
-      if (response.data && response.data.message && 
-          response.data.message.includes('validation failed')) {
-        console.error('CUSTOMER CREATION FAILED:');
-        console.error(`Validation Error: ${response.data.message}`);
-        
-        // Return the error with appropriate status code
-        return res.status(400).json({
-          error: 'Customer creation failed',
-          details: response.data.message
-        });
-      }
-      
-      // Check if ID exists in the response
-      if (!response.data || !response.data.id) {
-        console.error('CUSTOMER CREATION FAILED: No ID returned');
-        
-        return res.status(400).json({
-          error: 'Customer creation failed',
-          details: 'No customer ID returned'
-        });
-      }
-      
-      console.log('CUSTOMER CREATED SUCCESSFULLY!');
-      console.log(`Customer ID: ${response.data.id}`);
-      if (data && data.customer_first_name) {
-        console.log(`Customer Name: ${data.customer_first_name} ${data.customer_last_name || ''}`);
-      }
-    } 
-    else if (endpoint === 'property') {
-      // Similar validation for property creation
-      if (!response.data || !response.data.id) {
-        console.error('PROPERTY CREATION FAILED: No ID returned');
-        return res.status(400).json({
-          error: 'Property creation failed',
-          details: 'No property ID returned'
-        });
-      }
-      
-      console.log('PROPERTY CREATED SUCCESSFULLY!');
-      console.log(`Property ID: ${response.data.id}`);
-      console.log(`Property Name: ${data?.property?.property_name || 'Unknown'}`);
-      console.log(`For Customer ID: ${data?.property?.customer_id || 'Unknown'}`);
-    }
-    
-    // Return the response
-    return res.json(response.data);
-  } catch (error) {
-    console.error(`\n===== ZUPER API ERROR =====`);
-    console.error(`Error Message: ${error.message}`);
-    
-    if (error.response) {
-      // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
-      console.error('Error details:', {
-        status: error.response.status,
-        statusText: error.response.statusText,
-        data: JSON.stringify(error.response.data).substring(0, 500) // Limit log size
-      });
-      
-      return res.status(error.response.status).json({
-        error: 'Zuper API error',
-        details: error.response.data
-      });
-    } else if (error.request) {
-      // The request was made but no response was received
-      console.error('No response received');
-      return res.status(504).json({
-        error: 'Zuper API timeout',
-        message: 'No response received from Zuper API'
-      });
-    } else {
-      // Something happened in setting up the request that triggered an Error
-      console.error('Request setup error:', error.message);
-      return res.status(500).json({
-        error: 'Request configuration error',
-        message: error.message
-      });
-    }
-  }
-});
 // ENHANCED image analysis endpoint
 app.post('/api/analyze-image', async (req, res) => {
   try {
@@ -376,6 +223,52 @@ app.post('/api/analyze-image', async (req, res) => {
         systemType: "",
         age: ""
       }
+    });
+  }
+});
+
+// UPDATED: Zuper API endpoint with improved error handling and request formatting
+app.post('/api/zuper', async (req, res) => {
+  try {
+    const { endpoint, method, params, data } = req.body;
+
+    if (!endpoint) {
+      return res.status(400).json({ 
+        error: 'Missing required parameter: endpoint'
+      });
+    }
+
+    console.log(`\n===== PROCESSING ZUPER API REQUEST =====`);
+    console.log(`Endpoint: ${endpoint}`);
+    console.log(`Method: ${method || 'GET'}`);
+    
+    try {
+      // Use the ZuperHandler to process the request
+      const response = await zuperHandler.processRequest({
+        endpoint,
+        method,
+        params,
+        data
+      });
+      
+      // Return the response data
+      return res.json(response);
+    } catch (apiError) {
+      // Format error for client
+      console.error(`Zuper API error:`, apiError);
+      
+      return res.status(apiError.status || 500).json({
+        error: 'Zuper API error',
+        message: apiError.message || 'An error occurred while processing your request',
+        details: apiError.details || {}
+      });
+    }
+  } catch (error) {
+    console.error('Error in /api/zuper endpoint:', error);
+    
+    return res.status(500).json({
+      error: 'Server error',
+      message: 'An unexpected error occurred while processing your request'
     });
   }
 });
