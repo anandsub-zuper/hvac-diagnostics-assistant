@@ -174,8 +174,12 @@ app.post('/api/zuper', async (req, res) => {
     const { endpoint, method, params, data } = req.body;
 
         // Enhanced logging
-    console.log(`Zuper API request to ${endpoint}:`);
-    console.log('Request data:', JSON.stringify(data, null, 2));
+    console.log(`\n===== ZUPER API REQUEST =====`);
+    console.log(`Endpoint: ${endpoint}`);
+    console.log(`Method: ${method}`);
+    console.log(`Params: ${JSON.stringify(params)}`);
+    console.log(`Data: ${JSON.stringify(data, null, 2)}`);
+    console.log(`===========================\n`);
     
     // Get API key from environment
     const apiKey = process.env.ZUPER_API_KEY;
@@ -208,6 +212,12 @@ app.post('/api/zuper', async (req, res) => {
       },
       timeout: 30000
     };
+
+    // Detailed success logging
+    console.log(`\n===== ZUPER API RESPONSE =====`);
+    console.log(`Status: ${response.status}`);
+    console.log(`Response Data: ${JSON.stringify(response.data, null, 2)}`);
+    console.log(`============================\n`);
 
     // ENHANCED: Log the response details with IDs for key endpoints
     console.log(`Zuper API request successful: ${method} ${endpoint}`);
@@ -245,7 +255,8 @@ app.post('/api/zuper', async (req, res) => {
     // Return the response
     return res.json(response.data);
   } catch (error) {
-    console.error('Error proxying request to Zuper API:', error.message);
+    console.error(`\n===== ZUPER API ERROR =====`);
+    console.error(`Error Message: ${error.message}`);
     
     if (error.response) {
       // The request was made and the server responded with a status code
