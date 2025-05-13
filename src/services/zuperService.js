@@ -78,6 +78,7 @@ class ZuperService {
     try {
       // Format the customer data according to Zuper API requirements
       const formattedCustomerData = {
+        customer: {
         first_name: customerData.firstName,
         last_name: customerData.lastName,
         email: customerData.email,
@@ -93,6 +94,7 @@ class ZuperService {
           country: customerData.address.country || 'USA',
           zip_code: customerData.address.zipCode
         } : undefined
+        }
       };
 
       const response = await this.makeProxiedRequest('customers_new', 'POST', null, formattedCustomerData);
