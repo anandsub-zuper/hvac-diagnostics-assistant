@@ -208,6 +208,21 @@ app.post('/api/zuper', async (req, res) => {
       },
       timeout: 30000
     };
+
+    // ENHANCED: Log the response details with IDs for key endpoints
+    console.log(`Zuper API request successful: ${method} ${endpoint}`);
+    
+    if (endpoint === 'customers_new') {
+      console.log('CUSTOMER CREATED SUCCESSFULLY!');
+      console.log(`Customer ID: ${response.data?.id || 'Not returned'}`);
+      console.log(`Customer Name: ${data?.customer?.first_name} ${data?.customer?.last_name}`);
+    } 
+    else if (endpoint === 'property') {
+      console.log('PROPERTY CREATED SUCCESSFULLY!');
+      console.log(`Property ID: ${response.data?.id || 'Not returned'}`);
+      console.log(`Property Name: ${data?.property?.property_name}`);
+      console.log(`For Customer ID: ${data?.property?.customer_id}`);
+    }
     
     // Add query parameters if provided
     if (params) {
