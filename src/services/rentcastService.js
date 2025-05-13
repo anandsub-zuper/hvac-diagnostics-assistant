@@ -43,18 +43,15 @@ class RentcastService {
       if (address.country) addressStr += ', ' + address.country;
       else addressStr += ', United States'; // Default country
 
-      // Encode the address *only once*
-      const encodedAddress = encodeURIComponent(addressStr);
+      console.log('Querying Rentcast by address:', addressStr);
 
-      console.log('Querying Rentcast by address:', encodedAddress);
-
-      // Use the correct endpoint: /properties
+      // FIXED: Let axios handle the encoding of parameters
       const response = await axios.get(
         `${this.baseUrl}/properties`,
         {
           headers: this.getHeaders(),
           params: {
-            address: encodedAddress // Use the correctly encoded address
+            address: addressStr // Pass unencoded address, axios will encode properly
           }
         }
       );
