@@ -32,25 +32,31 @@ class RentcastService {
    */
   async getPropertyByAddress(address) {
     try {
-      // Format the address for the API request with commas and United States
-      const formattedAddress = `${address.streetNumber}, ${address.street}, ${address.city}, ${address.state}, ${address.zipCode}, United States`;
+      // Create a complete address string
+      const addressStr = `${address.streetNumber} ${address.street}, ${address.city}, ${address.state} ${address.zipCode}`;
       
-      console.log('Querying Rentcast by address:', formattedAddress);
+      // Properly encode the address using encodeURIComponent
+      const encodedAddress = encodeURIComponent(addressStr);
       
+      console.log('Querying Rentcast by address:', addressStr);
+      
+      // Use the correct endpoint: /properties (not /properties/search)
       const response = await axios.get(
-        `${this.baseUrl}/properties`, // FIXED: Correct endpoint
+        `${this.baseUrl}/properties`, 
         {
           headers: this.getHeaders(),
           params: {
-            address: formattedAddress
+            address: encodedAddress
           }
         }
       );
 
+      // Check if we got data back
       if (!response.data || response.data.length === 0) {
         throw new Error('No property found at this address');
       }
 
+      // Process the first item in the results array
       return this.processPropertyData(response.data[0]);
     } catch (error) {
       console.error('Error fetching property from Rentcast:', error);
@@ -68,7 +74,7 @@ class RentcastService {
     try {
       console.log('Querying Rentcast by coordinates:', latitude, longitude);
       
-      // FIXED: Using the correct properties endpoint with lat/long
+      // Use the correct endpoint with coordinates
       const response = await axios.get(
         `${this.baseUrl}/properties`,
         {
@@ -80,10 +86,12 @@ class RentcastService {
         }
       );
 
+      // Check if we got data back
       if (!response.data || response.data.length === 0) {
         throw new Error('No property found at this location');
       }
 
+      // Process the first item in the results array
       return this.processPropertyData(response.data[0]);
     } catch (error) {
       console.error('Error fetching property by location from Rentcast:', error);
@@ -92,7 +100,7 @@ class RentcastService {
   }
 
   /**
-   * Fallback method that tries different endpoints if main endpoint fails
+   * Fallback method that tries different lookup methods
    * @param {Object} address - Address object with coordinates and address details
    * @returns {Promise<Object>} Property details
    */
@@ -113,9 +121,49 @@ class RentcastService {
         return await this.getPropertyByLocation(address.latitude, address.longitude);
       }
       
+      // Try by zip code as a last resort
+      if (address.zipCode) {
+        try {
+          return await this.getPropertiesByZipCode(address.zipCode);
+        } catch (zipError) {
+          console.log('ZIP code lookup failed:', zipError);
+        }
+      }
+      
       throw new Error('Insufficient address information to query Rentcast API');
     } catch (error) {
       console.error('All Rentcast lookup methods failed:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Get properties by ZIP code
+   * @param {string} zipCode - ZIP code to search
+   * @returns {Promise<Object>} Property details
+   */
+  async getPropertiesByZipCode(zipCode) {
+    try {
+      console.log('Querying Rentcast by ZIP code:', zipCode);
+      
+      const response = await axios.get(
+        `${this.baseUrl}/properties`,
+        {
+          headers: this.getHeaders(),
+          params: {
+            zipCode
+          }
+        }
+      );
+
+      if (!response.data || response.data.length === 0) {
+        throw new Error('No properties found for this ZIP code');
+      }
+
+      // Return the first property in the ZIP code
+      return this.processPropertyData(response.data[0]);
+    } catch (error) {
+      console.error('Error fetching properties by ZIP code from Rentcast:', error);
       throw error;
     }
   }
