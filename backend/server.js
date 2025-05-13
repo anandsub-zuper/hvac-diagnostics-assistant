@@ -1,6 +1,7 @@
 // server.js - Complete file with fixed diagnosis endpoint AND enhanced image analysis
 const express = require('express');
 const cors = require('cors');
+const axios = require('axios'); 
 const { OpenAI } = require('openai');
 require('dotenv').config();
 
