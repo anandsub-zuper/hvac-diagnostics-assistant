@@ -245,25 +245,17 @@ const DiagnosticTool = ({ isOnline, diagnosticData, setDiagnosticData }) => {
           customerId,
           propertyId: createdProperty.id
         });
+      console.log('Zuper integration complete');
+      console.log('Customer ID:', customerId);
+      console.log('Property ID:', propertyId);
       } catch (err) {
+        console.error('Error with Zuper integration:', err);
         console.error('Error creating customer/property in Zuper:', err);
         // Continue anyway - we'll allow local diagnosis without Zuper integration
       } finally {
         setIsLoading(false);
       }
     }
-
-    console.log('Zuper integration complete');
-      console.log('Customer ID:', customerId);
-      console.log('Property ID:', propertyId);
-    } catch (err) {
-      console.error('Error with Zuper integration:', err);
-      // Log the full error for debugging
-      console.error('Full error details:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }
 
     // Continue to HVAC system type selection
     setCurrentStep(STEPS.SYSTEM_TYPE);
