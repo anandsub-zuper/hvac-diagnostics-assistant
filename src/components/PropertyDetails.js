@@ -1,4 +1,4 @@
-// src/components/PropertyDetails.js
+// src/components/PropertyDetails.js - FULL UPDATED CODE
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import rentcastService from '../services/rentcastService';
@@ -134,6 +134,22 @@ const LoadingSpinner = styled.div`
   }
 `;
 
+const CheckboxWrapper = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+`;
+
+const CheckboxLabel = styled.label`
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+`;
+
+const Checkbox = styled.input`
+  margin-right: 8px;
+`;
+
 const PropertyDetails = ({ address, onPropertyDetailsSubmit, onBack }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -148,18 +164,20 @@ const PropertyDetails = ({ address, onPropertyDetailsSubmit, onBack }) => {
       hasPool: false,
       hasGarage: false,
       hasCentralAir: true, // Default to true since this is an HVAC app
-      hasBasement: false
+      hasBasement: false,
+      hasFireplace: false,
+      floorCount: 1,
+      garageType: '',
+      hasHeating: true,
+      heatingType: '',
+      unitCount: 1
     },
     ownerInfo: {
       name: '',
       phone: '',
       email: ''
-    },
-    tenantInfo: {
-      name: '',
-      phone: '',
-      email: ''
     }
+    // Removed tenantInfo section
   });
   
   // Fetch property details from Rentcast when component mounts
@@ -232,17 +250,18 @@ const PropertyDetails = ({ address, onPropertyDetailsSubmit, onBack }) => {
             hasPool: propertyDetails.propertyFeatures.hasPool || false,
             hasGarage: propertyDetails.propertyFeatures.hasGarage || false,
             hasCentralAir: propertyDetails.propertyFeatures.hasCentralAir || true,
-            hasBasement: propertyDetails.propertyFeatures.hasBasement || false
+            hasBasement: propertyDetails.propertyFeatures.hasBasement || false,
+            hasFireplace: propertyDetails.propertyFeatures.hasFireplace || false,
+            floorCount: propertyDetails.propertyFeatures.floorCount || 1,
+            garageType: propertyDetails.propertyFeatures.garageType || '',
+            hasHeating: propertyDetails.propertyFeatures.hasHeating || true,
+            heatingType: propertyDetails.propertyFeatures.heatingType || '',
+            unitCount: propertyDetails.propertyFeatures.unitCount || 1
           },
           ownerInfo: {
             name: propertyDetails.ownerInfo.name || '',
             phone: propertyDetails.ownerInfo.phoneNumber || '',
             email: propertyDetails.ownerInfo.email || ''
-          },
-          tenantInfo: {
-            name: propertyDetails.tenantInfo.tenantName || '',
-            phone: propertyDetails.tenantInfo.tenantPhone || '',
-            email: propertyDetails.tenantInfo.tenantEmail || ''
           }
         });
         
@@ -320,8 +339,8 @@ const PropertyDetails = ({ address, onPropertyDetailsSubmit, onBack }) => {
         lotSize: propertyData.lotSize
       },
       features: propertyData.features,
-      ownerInfo: propertyData.ownerInfo,
-      tenantInfo: propertyData.tenantInfo
+      ownerInfo: propertyData.ownerInfo
+      // Removed tenantInfo
     };
     
     // Pass the property data up to the parent component
@@ -436,52 +455,130 @@ const PropertyDetails = ({ address, onPropertyDetailsSubmit, onBack }) => {
         
         <FormGroup>
           <Label>Property Features</Label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px' }}>
-            <label style={{ display: 'flex', alignItems: 'center' }}>
-              <input
+          <CheckboxWrapper>
+            <CheckboxLabel>
+              <Checkbox
                 type="checkbox"
                 name="hasPool"
                 checked={propertyData.features.hasPool}
                 onChange={(e) => handleChange(e, 'features')}
-                style={{ marginRight: '8px' }}
               />
               Swimming Pool
-            </label>
+            </CheckboxLabel>
             
-            <label style={{ display: 'flex', alignItems: 'center' }}>
-              <input
+            <CheckboxLabel>
+              <Checkbox
                 type="checkbox"
                 name="hasGarage"
                 checked={propertyData.features.hasGarage}
                 onChange={(e) => handleChange(e, 'features')}
-                style={{ marginRight: '8px' }}
               />
               Garage
-            </label>
+            </CheckboxLabel>
             
-            <label style={{ display: 'flex', alignItems: 'center' }}>
-              <input
+            <CheckboxLabel>
+              <Checkbox
                 type="checkbox"
                 name="hasCentralAir"
                 checked={propertyData.features.hasCentralAir}
                 onChange={(e) => handleChange(e, 'features')}
-                style={{ marginRight: '8px' }}
               />
               Central Air
-            </label>
+            </CheckboxLabel>
             
-            <label style={{ display: 'flex', alignItems: 'center' }}>
-              <input
+            <CheckboxLabel>
+              <Checkbox
                 type="checkbox"
                 name="hasBasement"
                 checked={propertyData.features.hasBasement}
                 onChange={(e) => handleChange(e, 'features')}
-                style={{ marginRight: '8px' }}
               />
               Basement
-            </label>
-          </div>
+            </CheckboxLabel>
+            
+            <CheckboxLabel>
+              <Checkbox
+                type="checkbox"
+                name="hasFireplace"
+                checked={propertyData.features.hasFireplace}
+                onChange={(e) => handleChange(e, 'features')}
+              />
+              Fireplace
+            </CheckboxLabel>
+            
+            <CheckboxLabel>
+              <Checkbox
+                type="checkbox"
+                name="hasHeating"
+                checked={propertyData.features.hasHeating}
+                onChange={(e) => handleChange(e, 'features')}
+              />
+              Heating
+            </CheckboxLabel>
+          </CheckboxWrapper>
         </FormGroup>
+        
+        <FormRow>
+          <FormGroup>
+            <Label htmlFor="floorCount">Floor Count</Label>
+            <Input
+              type="number"
+              id="floorCount"
+              name="floorCount"
+              value={propertyData.features.floorCount}
+              onChange={(e) => handleChange({...e, value: parseInt(e.target.value) || 1}, 'features')}
+              min="1"
+            />
+          </FormGroup>
+          
+          <FormGroup>
+            <Label htmlFor="garageType">Garage Type</Label>
+            <Select
+              id="garageType"
+              name="garageType"
+              value={propertyData.features.garageType}
+              onChange={(e) => handleChange(e, 'features')}
+            >
+              <option value="">Select Garage Type</option>
+              <option value="Attached">Attached</option>
+              <option value="Detached">Detached</option>
+              <option value="Carport">Carport</option>
+              <option value="None">None</option>
+            </Select>
+          </FormGroup>
+          
+          <FormGroup>
+            <Label htmlFor="heatingType">Heating Type</Label>
+            <Select
+              id="heatingType"
+              name="heatingType"
+              value={propertyData.features.heatingType}
+              onChange={(e) => handleChange(e, 'features')}
+            >
+              <option value="">Select Heating Type</option>
+              <option value="Forced Air">Forced Air</option>
+              <option value="Radiant">Radiant</option>
+              <option value="Heat Pump">Heat Pump</option>
+              <option value="Baseboard">Baseboard</option>
+              <option value="Furnace">Furnace</option>
+              <option value="Other">Other</option>
+            </Select>
+          </FormGroup>
+        </FormRow>
+        
+        <FormRow>
+          <FormGroup>
+            <Label htmlFor="unitCount">Unit Count</Label>
+            <Input
+              type="number"
+              id="unitCount"
+              name="unitCount"
+              value={propertyData.features.unitCount}
+              onChange={(e) => handleChange({...e, value: parseInt(e.target.value) || 1}, 'features')}
+              min="1"
+            />
+          </FormGroup>
+        </FormRow>
       </PropertyCard>
       
       <PropertyCard>
@@ -526,47 +623,7 @@ const PropertyDetails = ({ address, onPropertyDetailsSubmit, onBack }) => {
         </FormRow>
       </PropertyCard>
       
-      <PropertyCard>
-        <CardTitle>Tenant Information</CardTitle>
-        
-        <FormGroup>
-          <Label htmlFor="tenantName">Tenant Name</Label>
-          <Input
-            type="text"
-            id="tenantName"
-            name="name"
-            value={propertyData.tenantInfo.name}
-            onChange={(e) => handleChange(e, 'tenantInfo')}
-            placeholder="e.g. Jane Doe"
-          />
-        </FormGroup>
-        
-        <FormRow>
-          <FormGroup>
-            <Label htmlFor="tenantPhone">Tenant Phone</Label>
-            <Input
-              type="tel"
-              id="tenantPhone"
-              name="phone"
-              value={propertyData.tenantInfo.phone}
-              onChange={(e) => handleChange(e, 'tenantInfo')}
-              placeholder="e.g. 555-123-4567"
-            />
-          </FormGroup>
-          
-          <FormGroup>
-            <Label htmlFor="tenantEmail">Tenant Email</Label>
-            <Input
-              type="email"
-              id="tenantEmail"
-              name="email"
-              value={propertyData.tenantInfo.email}
-              onChange={(e) => handleChange(e, 'tenantInfo')}
-              placeholder="e.g. jane@example.com"
-            />
-          </FormGroup>
-        </FormRow>
-      </PropertyCard>
+      {/* Tenant Information PropertyCard removed */}
       
       <ButtonContainer>
         <Button onClick={onBack}>
