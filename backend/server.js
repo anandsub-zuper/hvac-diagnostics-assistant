@@ -169,6 +169,8 @@ app.post('/api/diagnose', async (req, res) => {
   }
 });
 
+// Updated server.js Zuper API endpoint with better error handling
+
 app.post('/api/zuper', async (req, res) => {
   try {
     const { endpoint, method, params, data } = req.body;
@@ -238,19 +240,51 @@ app.post('/api/zuper', async (req, res) => {
     console.log(`Response Data: ${JSON.stringify(response.data, null, 2)}`);
     console.log(`============================\n`);
 
-    // Log additional details for specific endpoints
-    console.log(`Zuper API request successful: ${method} ${endpoint}`);
-    
+    // IMPROVED: Better validation for customer creation responses
     if (endpoint === 'customers_new') {
+      // Check if the response contains error messages despite 200 status
+      if (response.data && response.data.message && 
+          response.data.message.includes('validation failed')) {
+        console.error('CUSTOMER CREATION FAILED:');
+        console.error(`Validation Error: ${response.data.message}`);
+        
+        // Return the error with appropriate status code
+        return res.status(400).json({
+          error: 'Customer creation failed',
+          details: response.data.message
+        });
+      }
+      
+      // Check if ID exists in the response
+      if (!response.data || !response.data.id) {
+        console.error('CUSTOMER CREATION FAILED: No ID returned');
+        
+        return res.status(400).json({
+          error: 'Customer creation failed',
+          details: 'No customer ID returned'
+        });
+      }
+      
       console.log('CUSTOMER CREATED SUCCESSFULLY!');
-      console.log(`Customer ID: ${response.data?.id || 'Not returned'}`);
-      console.log(`Customer Name: ${data?.customer?.first_name} ${data?.customer?.last_name}`);
+      console.log(`Customer ID: ${response.data.id}`);
+      if (data && data.customer_first_name) {
+        console.log(`Customer Name: ${data.customer_first_name} ${data.customer_last_name || ''}`);
+      }
     } 
     else if (endpoint === 'property') {
+      // Similar validation for property creation
+      if (!response.data || !response.data.id) {
+        console.error('PROPERTY CREATION FAILED: No ID returned');
+        return res.status(400).json({
+          error: 'Property creation failed',
+          details: 'No property ID returned'
+        });
+      }
+      
       console.log('PROPERTY CREATED SUCCESSFULLY!');
-      console.log(`Property ID: ${response.data?.id || 'Not returned'}`);
-      console.log(`Property Name: ${data?.property?.property_name}`);
-      console.log(`For Customer ID: ${data?.property?.customer_id}`);
+      console.log(`Property ID: ${response.data.id}`);
+      console.log(`Property Name: ${data?.property?.property_name || 'Unknown'}`);
+      console.log(`For Customer ID: ${data?.property?.customer_id || 'Unknown'}`);
     }
     
     // Return the response
@@ -289,7 +323,6 @@ app.post('/api/zuper', async (req, res) => {
     }
   }
 });
-
 // ENHANCED image analysis endpoint
 app.post('/api/analyze-image', async (req, res) => {
   try {
