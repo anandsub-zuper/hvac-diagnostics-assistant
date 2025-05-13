@@ -45,7 +45,7 @@ class ZuperService {
     try {
       // Try to find by email first
       if (email) {
-        const emailResponse = await this.makeProxiedRequest('v1/customers', 'GET', { email });
+        const emailResponse = await this.makeProxiedRequest('customers', 'GET', { email });
 
         if (emailResponse.data && emailResponse.data.length > 0) {
           return emailResponse.data[0];
@@ -54,7 +54,7 @@ class ZuperService {
 
       // Try to find by phone if email search failed
       if (phone) {
-        const phoneResponse = await this.makeProxiedRequest('v1/customers', 'GET', { phone });
+        const phoneResponse = await this.makeProxiedRequest('customers', 'GET', { phone });
 
         if (phoneResponse.data && phoneResponse.data.length > 0) {
           return phoneResponse.data[0];
@@ -115,6 +115,7 @@ class ZuperService {
     try {
       // Format the property data according to Zuper API requirements
       const formattedPropertyData = {
+        property: {
         customer_id: customerId,
         property_name: propertyData.propertyName || 'Primary Property',
         property_type: propertyData.propertyType || 'residential',
@@ -132,6 +133,7 @@ class ZuperService {
           bedrooms: propertyData.attributes?.bedrooms || '',
           bathrooms: propertyData.attributes?.bathrooms || '',
           lot_size: propertyData.attributes?.lotSize || ''
+        }
         }
       };
 
