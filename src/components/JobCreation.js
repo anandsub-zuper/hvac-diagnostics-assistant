@@ -445,9 +445,9 @@ const JobCreation = ({
         job: {
           // Core job fields - using job_title instead of title
           job_title: jobData.title,
-          customer_id: zuperIds.customerId,
-          property_id: zuperIds.propertyId,
-          description: jobData.description,
+          customer_uid: zuperIds.customerId,
+          property: zuperIds.propertyId,
+          job_description: jobData.description,
           job_category: jobData.jobCategory,
           priority: jobData.priority,
           status: jobData.status,
