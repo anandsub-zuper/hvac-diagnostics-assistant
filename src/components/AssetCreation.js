@@ -1,5 +1,6 @@
-// src/components/AssetCreation.js
-import React, { useState } from 'react';
+// Update this in src/components/AssetCreation.js
+
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import zuperService from '../services/zuperService';
 
@@ -188,9 +189,12 @@ const AssetCreation = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [assetCategories, setAssetCategories] = useState([]);
+  const [assetCategoriesLoading, setAssetCategoriesLoading] = useState(false);
+  
   const [assetData, setAssetData] = useState({
     name: `${systemInfo?.brand || ''} ${systemInfo?.systemType ? formatSystemType(systemInfo.systemType) : 'HVAC System'}`,
-    type: 'HVAC',
+    assetCategory: '', // Required field
     manufacturer: systemInfo?.brand || '',
     model: systemInfo?.model || '',
     serialNumber: systemInfo?.serialNumber || '',
@@ -204,6 +208,35 @@ const AssetCreation = ({
   });
   
   const [createdAssets, setCreatedAssets] = useState([]);
+  
+  // Fetch asset categories when component mounts
+  useEffect(() => {
+    const fetchAssetCategories = async () => {
+      setAssetCategoriesLoading(true);
+      try {
+        const categories = await zuperService.getAssetCategories();
+        setAssetCategories(categories);
+        
+        // Set a default category if available
+        if (categories.length > 0) {
+          setAssetData(prev => ({
+            ...prev,
+            assetCategory: categories[0].id
+          }));
+        }
+      } catch (err) {
+        console.error('Error fetching asset categories:', err);
+        setError({
+          type: 'warning',
+          message: 'Could not fetch asset categories. Please select a category manually if available.'
+        });
+      } finally {
+        setAssetCategoriesLoading(false);
+      }
+    };
+    
+    fetchAssetCategories();
+  }, []);
   
   // Helper function to format system type for display
   function formatSystemType(type) {
@@ -236,6 +269,14 @@ const AssetCreation = ({
       return false;
     }
     
+    if (!assetData.assetCategory) {
+      setError({
+        type: 'error',
+        message: 'Asset category is required'
+      });
+      return false;
+    }
+    
     return true;
   };
   
@@ -252,7 +293,7 @@ const AssetCreation = ({
       // Format asset data for Zuper API
       const formattedAssetData = {
         name: assetData.name,
-        type: assetData.type,
+        assetCategory: assetData.assetCategory,
         manufacturer: assetData.manufacturer,
         model: assetData.model,
         serialNumber: assetData.serialNumber,
@@ -275,10 +316,10 @@ const AssetCreation = ({
         ...prev,
         {
           id: createdAsset.id,
-          name: createdAsset.asset_name,
+          name: createdAsset.name,
           manufacturer: createdAsset.manufacturer,
           model: createdAsset.model,
-          serialNumber: createdAsset.serial_number
+          serialNumber: createdAsset.serialNumber
         }
       ]);
       
@@ -290,7 +331,7 @@ const AssetCreation = ({
       // Reset form for next asset
       setAssetData({
         name: `${systemInfo?.brand || ''} ${systemInfo?.systemType ? formatSystemType(systemInfo.systemType) : 'HVAC System'}`,
-        type: 'HVAC',
+        assetCategory: assetData.assetCategory, // Keep the selected category
         manufacturer: systemInfo?.brand || '',
         model: systemInfo?.model || '',
         serialNumber: '',
@@ -324,6 +365,15 @@ const AssetCreation = ({
     setCreatedAssets(prev => prev.filter(asset => asset.id !== assetId));
   };
   
+  if (assetCategoriesLoading) {
+    return (
+      <LoadingContainer>
+        <LoadingSpinner />
+        <p>Loading asset categories...</p>
+      </LoadingContainer>
+    );
+  }
+  
   return (
     <Container>
       <Title>Add HVAC Equipment</Title>
@@ -353,6 +403,27 @@ const AssetCreation = ({
             placeholder="e.g. Carrier Central AC"
             required
           />
+        </FormGroup>
+        
+        <FormGroup>
+          <Label htmlFor="assetCategory">Asset Category *</Label>
+          <Select
+            id="assetCategory"
+            name="assetCategory"
+            value={assetData.assetCategory}
+            onChange={handleChange}
+            required
+          >
+            <option value="">Select a category</option>
+            {assetCategories.map(category => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+            {assetCategories.length === 0 && (
+              <option value="hvac">HVAC Equipment</option>
+            )}
+          </Select>
         </FormGroup>
         
         <FormRow>
@@ -516,7 +587,7 @@ const AssetCreation = ({
           onClick={onContinue}
           disabled={createdAssets.length === 0}
         >
-          Continue to Diagnostics
+          Continue to Job Creation
         </Button>
       </ButtonContainer>
     </Container>
