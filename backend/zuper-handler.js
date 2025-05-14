@@ -317,6 +317,109 @@ class ZuperHandler {
       throw error;
     }
   }
+
+  async createAsset(assetData) {
+  try {
+    // Generate a unique asset code if not provided
+    const assetCode = assetData.asset_code || `A${Math.floor(100000 + Math.random() * 900000)}`;
+    
+    // Format asset data according to Zuper API requirements
+    // First, ensure we're using the correct structure per the API docs
+    const formattedData = {
+      asset: {
+        asset_code: assetCode,
+        asset_name: assetData.asset_name || assetData.asset?.asset_name || 'HVAC Asset',
+        asset_category: assetData.asset_category || assetData.asset?.asset_category || 'default_category',
+        
+        // Connection to customer and property
+        customer: assetData.customer || assetData.asset?.customer,
+        property: assetData.property || assetData.asset?.property,
+        
+        // Serial number
+        asset_serial_number: assetData.asset_serial_number || assetData.asset?.serial_number || '',
+        
+        // Dates
+        purchase_date: assetData.purchase_date || assetData.asset?.purchase_date,
+        warranty_expiry_date: assetData.warranty_expiry_date || assetData.asset?.warranty_expiry_date,
+        
+        // Custom fields
+        custom_fields: assetData.custom_fields || assetData.asset?.custom_fields || []
+      }
+    };
+    
+    console.log('Creating asset with formatted data:', JSON.stringify(formattedData, null, 2));
+    
+    // Make the API request
+    const response = await this.processRequest({
+      endpoint: 'assets',
+      method: 'POST',
+      data: formattedData
+    });
+    
+    // Process the response
+    console.log('Asset creation response:', JSON.stringify(response, null, 2));
+    
+    // Extract the asset ID
+    let assetId = null;
+    
+    // Check different possible locations for the asset ID
+    if (response.data && response.data.asset_id) {
+      assetId = response.data.asset_id;
+    } else if (response.asset_id) {
+      assetId = response.asset_id;
+    } else if (response.id) {
+      assetId = response.id;
+    } else if (response.message && typeof response.message === 'string') {
+      // Try to extract ID from success message if it's in UUID format
+      const uuidMatch = response.message.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+      if (uuidMatch) {
+        assetId = uuidMatch[1];
+      }
+    }
+    
+    if (!assetId) {
+      console.error('Could not find asset ID in response:', response);
+      throw new Error('Failed to extract asset ID from response');
+    }
+    
+    console.log('Successfully created asset with ID:', assetId);
+    
+    return {
+      id: assetId,
+      asset_code: assetCode,
+      message: response.message || 'Asset created successfully'
+    };
+  } catch (error) {
+    console.error('Error in createAsset:', error);
+    throw error;
+  }
+}
+
+/**
+ * Helper method to get asset categories
+ * @returns {Promise<Array>} - Asset categories
+ */
+async getAssetCategories() {
+  try {
+    // Make the API request to get asset categories
+    const response = await this.processRequest({
+      endpoint: 'asset-categories',
+      method: 'GET'
+    });
+    
+    // If the response has a data array, return it
+    if (response && response.data && Array.isArray(response.data)) {
+      return response.data;
+    }
+    
+    // If we don't have a proper data array, return an empty array
+    console.warn('Asset categories response did not contain expected data array:', response);
+    return [];
+  } catch (error) {
+    console.error('Error fetching asset categories:', error);
+    throw error;
+  }
+}
 }
 
 module.exports = new ZuperHandler();
