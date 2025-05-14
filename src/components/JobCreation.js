@@ -1,4 +1,4 @@
-// src/components/JobCreation.js
+// src/components/JobCreation.js - FIXED VERSION
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import zuperService from '../services/zuperService';
@@ -169,6 +169,27 @@ const DiagnosticSummary = styled.div`
   border-radius: 0 4px 4px 0;
 `;
 
+const EntityList = styled.div`
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 15px;
+`;
+
+const EntityItem = styled.div`
+  padding: 8px;
+  border-bottom: 1px solid #e9ecef;
+  &:last-child {
+    border-bottom: none;
+  }
+`;
+
+const ItemTitle = styled.span`
+  font-weight: ${props => props.selected ? 'bold' : 'normal'};
+  color: ${props => props.selected ? '#2980b9' : 'inherit'};
+`;
+
 const JobCreation = ({
   diagnosticResult,
   zuperIds,
@@ -178,6 +199,7 @@ const JobCreation = ({
   onComplete
 }) => {
   const [loading, setLoading] = useState(false);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [jobCategories, setJobCategories] = useState([]);
@@ -249,24 +271,56 @@ const JobCreation = ({
   // Fetch job categories when component mounts
   useEffect(() => {
     const fetchJobCategories = async () => {
+      setCategoriesLoading(true);
       try {
-        // Call method in zuperService to get job categories
-        const categories = await zuperService.getJobCategories();
-        setJobCategories(categories);
+        console.log("Fetching job categories...");
+        // Call method in zuperService to get job categories using the correct endpoint
+        const categories = await zuperService.makeProxiedRequest('jobs/category', 'GET');
         
-        // Set a default category if available
-        if (categories.length > 0) {
-          setJobData(prev => ({
-            ...prev,
-            jobCategory: categories[0].id
+        console.log("Job categories response:", categories);
+        
+        if (categories && categories.type === "success" && Array.isArray(categories.data)) {
+          // Map the response to a simpler format
+          const formattedCategories = categories.data.map(category => ({
+            id: category.category_uid,
+            name: category.category_name,
+            description: category.category_description || ''
           }));
+          
+          setJobCategories(formattedCategories);
+          
+          // Set a default category if available
+          if (formattedCategories.length > 0) {
+            setJobData(prev => ({
+              ...prev,
+              jobCategory: formattedCategories[0].id
+            }));
+          }
+        } else {
+          console.warn('Unexpected format in job categories response:', categories);
+          setError({
+            type: 'warning',
+            message: 'Could not fetch job categories properly. Please select a category manually if available.'
+          });
+          
+          // Provide a fallback category
+          setJobCategories([
+            { id: 'default', name: 'Service Call' }
+          ]);
         }
       } catch (err) {
         console.error('Error fetching job categories:', err);
         setError({
           type: 'warning',
-          message: 'Could not fetch job categories. Please select a category manually if available.'
+          message: 'Could not fetch job categories. A default category will be used.'
         });
+        
+        // Provide a fallback category
+        setJobCategories([
+          { id: 'default', name: 'Service Call' }
+        ]);
+      } finally {
+        setCategoriesLoading(false);
       }
     };
     
@@ -345,6 +399,22 @@ const JobCreation = ({
       return false;
     }
     
+    if (!zuperIds.customerId) {
+      setError({
+        type: 'error',
+        message: 'Customer ID is missing. Please go back and ensure customer is created.'
+      });
+      return false;
+    }
+    
+    if (!zuperIds.propertyId) {
+      setError({
+        type: 'error',
+        message: 'Property ID is missing. Please go back and ensure property is created.'
+      });
+      return false;
+    }
+    
     return true;
   };
   
@@ -362,29 +432,69 @@ const JobCreation = ({
       const assetIds = jobData.selectedAssets
         .filter(asset => asset.selected)
         .map(asset => asset.id);
+      
+      console.log("Creating job with customer ID:", zuperIds.customerId);
+      console.log("Creating job with property ID:", zuperIds.propertyId);
+      console.log("Creating job with assets:", assetIds);
+      console.log("Creating job with category:", jobData.jobCategory);
         
-      // Format job data for Zuper API
+      // Format job data for Zuper API using the corrected format
       const formattedJobData = {
-        customerId: zuperIds.customerId,
-        propertyId: zuperIds.propertyId,
-        assetIds: assetIds,
-        title: jobData.title,
-        description: jobData.description,
-        jobCategory: jobData.jobCategory,
-        priority: jobData.priority,
-        status: jobData.status,
-        dueDate: jobData.dueDate,
-        diagnosticResult: JSON.stringify(diagnosticResult)
+        job: {
+          // These are now required at the root level of the job object
+          customer_id: zuperIds.customerId,
+          property_id: zuperIds.propertyId,
+          title: jobData.title,
+          description: jobData.description,
+          job_category: jobData.jobCategory,
+          priority: jobData.priority,
+          status: jobData.status,
+          due_date: jobData.dueDate,
+          
+          // Convert asset IDs to the required format
+          assets: assetIds.map(id => ({ asset: id })),
+          
+          // Add custom fields for the diagnostic result
+          custom_fields: [
+            {
+              label: "Diagnostic Result",
+              value: JSON.stringify(diagnosticResult.primaryIssue || "N/A")
+            },
+            {
+              label: "Repair Complexity",
+              value: diagnosticResult.repairComplexity || "Unknown"
+            }
+          ]
+        }
       };
       
+      console.log('Creating job with data:', JSON.stringify(formattedJobData, null, 2));
+      
       // Create job in Zuper
-      const createdJob = await zuperService.createJob(formattedJobData);
+      const response = await zuperService.makeProxiedRequest('jobs', 'POST', null, formattedJobData);
+      
+      console.log('Job creation response:', response);
+      
+      // Extract job ID from the response
+      const jobId = response.job_uid || response.id;
+      
+      if (!jobId) {
+        throw new Error('No job ID found in response');
+      }
+      
+      // Create a job object to return
+      const createdJob = {
+        id: jobId,
+        title: jobData.title,
+        priority: jobData.priority,
+        status: jobData.status
+      };
       
       // Show success message
       setSuccess(true);
       setError({
         type: 'success',
-        message: 'Job created successfully!'
+        message: 'Job created successfully! Job ID: ' + jobId
       });
       
       // Pass job to parent component
@@ -395,12 +505,21 @@ const JobCreation = ({
       console.error('Error creating job:', err);
       setError({
         type: 'error',
-        message: `Failed to create job: ${err.message}`
+        message: `Failed to create job: ${err.message || "Unknown error"}`
       });
     } finally {
       setLoading(false);
     }
   };
+  
+  if (categoriesLoading) {
+    return (
+      <LoadingContainer>
+        <LoadingSpinner />
+        <p>Loading job categories...</p>
+      </LoadingContainer>
+    );
+  }
   
   return (
     <Container>
@@ -426,6 +545,31 @@ const JobCreation = ({
           )}
         </DiagnosticSummary>
       )}
+      
+      {/* Customer and Property Information */}
+      <EntityList>
+        <CardTitle>Customer & Property</CardTitle>
+        <EntityItem>
+          <CheckboxLabel>
+            <Checkbox
+              type="checkbox"
+              checked={true}
+              disabled={true}
+            />
+            <ItemTitle selected={true}>Customer ID: {zuperIds.customerId}</ItemTitle>
+          </CheckboxLabel>
+        </EntityItem>
+        <EntityItem>
+          <CheckboxLabel>
+            <Checkbox
+              type="checkbox"
+              checked={true}
+              disabled={true}
+            />
+            <ItemTitle selected={true}>Property ID: {zuperIds.propertyId}</ItemTitle>
+          </CheckboxLabel>
+        </EntityItem>
+      </EntityList>
       
       <JobCard>
         <CardTitle>Job Details</CardTitle>
@@ -526,7 +670,10 @@ const JobCreation = ({
                     checked={asset.selected}
                     onChange={() => handleAssetToggle(asset.id)}
                   />
-                  {asset.name} {asset.model ? `(${asset.model})` : ''}
+                  <ItemTitle selected={asset.selected}>
+                    {asset.name} {asset.model ? `(${asset.model})` : ''}
+                    {asset.serialNumber ? ` - S/N: ${asset.serialNumber}` : ''}
+                  </ItemTitle>
                 </CheckboxLabel>
               ))}
             </CheckboxGroup>
