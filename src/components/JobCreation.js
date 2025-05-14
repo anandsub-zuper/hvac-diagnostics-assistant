@@ -1,4 +1,4 @@
-// src/components/JobCreation.js - FIXED VERSION
+// src/components/JobCreation.js - UPDATED VERSION
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import zuperService from '../services/zuperService';
@@ -194,6 +194,8 @@ const JobCreation = ({
   diagnosticResult,
   zuperIds,
   assets,
+  propertyData,
+  customerData,
   onJobCreated,
   onBack,
   onComplete
@@ -437,19 +439,50 @@ const JobCreation = ({
       console.log("Creating job with property ID:", zuperIds.propertyId);
       console.log("Creating job with assets:", assetIds);
       console.log("Creating job with category:", jobData.jobCategory);
-        
-      // Format job data for Zuper API using the corrected format
+      
+      // Format job data for Zuper API with the correct field names
       const formattedJobData = {
         job: {
-          // These are now required at the root level of the job object
+          // Core job fields - using job_title instead of title
+          job_title: jobData.title,
           customer_id: zuperIds.customerId,
           property_id: zuperIds.propertyId,
-          title: jobData.title,
           description: jobData.description,
           job_category: jobData.jobCategory,
           priority: jobData.priority,
           status: jobData.status,
           due_date: jobData.dueDate,
+          
+          // Service address (property address)
+          customer_address: propertyData && propertyData.address ? {
+            street: propertyData.address.streetAddress || '',
+            city: propertyData.address.city || '',
+            state: propertyData.address.state || '',
+            country: propertyData.address.country || 'USA',
+            zip_code: propertyData.address.zipCode || '',
+            geo_cordinates: propertyData.address.latitude && propertyData.address.longitude ? 
+              [propertyData.address.latitude, propertyData.address.longitude] : 
+              undefined,
+            // Add customer info
+            first_name: customerData?.firstName || '',
+            last_name: customerData?.lastName || '',
+            email: customerData?.email || '',
+            phone_number: customerData?.phone || ''
+          } : undefined,
+          
+          // Billing address (customer billing address - same as property in our case)
+          customer_billing_address: propertyData && propertyData.address ? {
+            street: propertyData.address.streetAddress || '',
+            city: propertyData.address.city || '',
+            state: propertyData.address.state || '',
+            country: propertyData.address.country || 'USA',
+            zip_code: propertyData.address.zipCode || '',
+            // Add customer info
+            first_name: customerData?.firstName || '',
+            last_name: customerData?.lastName || '',
+            email: customerData?.email || '',
+            phone_number: customerData?.phone || ''
+          } : undefined,
           
           // Convert asset IDs to the required format
           assets: assetIds.map(id => ({ asset: id })),
