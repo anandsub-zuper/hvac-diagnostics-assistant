@@ -16,7 +16,7 @@ class ZuperHandler {
       console.error('ERROR: ZUPER_API_KEY environment variable not set');
     }
     
-    // FIXED: Properly format the base URL without duplication
+    // FIXED: Properly format the base URL with dc-region format
     this.baseUrl = `https://${this.region}.zuperpro.com/api`;
     console.log(`Zuper API configured for region: ${this.region}`);
     console.log(`Using Zuper API base URL: ${this.baseUrl}`);
