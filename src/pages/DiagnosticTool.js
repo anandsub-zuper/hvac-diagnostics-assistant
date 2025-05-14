@@ -308,7 +308,7 @@ const handleCustomerDetailsSubmit = async (customer) => {
   // Continue to HVAC system type selection
   setCurrentStep(STEPS.SYSTEM_TYPE);
 };
-};
+
 
   // Handle system type selection
   const handleSystemTypeSelect = (type) => {
