@@ -564,17 +564,19 @@ const handleCustomerDetailsSubmit = async (customer) => {
           />
         );
 
-      case STEPS.JOB_CREATION:
-        return (
-          <JobCreation
-            diagnosticResult={diagnosticResult}
-            zuperIds={zuperIds}
-            assets={assets}
-            onJobCreated={handleJobCreated}
-            onBack={handleBack}
-            onComplete={() => setCurrentStep(STEPS.COMPLETION)}
-          />
-        );
+case STEPS.JOB_CREATION:
+  return (
+    <JobCreation
+      diagnosticResult={diagnosticResult}
+      zuperIds={zuperIds}
+      assets={assets}
+      propertyData={propertyData}
+      customerData={customerData}
+      onJobCreated={handleJobCreated}
+      onBack={handleBack}
+      onComplete={() => setCurrentStep(STEPS.COMPLETION)}
+    />
+  );
 
       case STEPS.COMPLETION:
         return (
