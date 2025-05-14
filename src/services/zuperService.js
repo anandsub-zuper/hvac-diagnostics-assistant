@@ -251,12 +251,33 @@ class ZuperService {
    * @returns {Promise<Object>} Created property data
    */
   async createProperty(customerId, propertyData) {
-    try {
-      // Format the property name
+try {
+      // Create property name based on customer name and address
+      // Get customer name from the property data if available
+      let customerName = '';
+      
+      // First try to get from ownerInfo (if available)
+      if (propertyData.ownerInfo && propertyData.ownerInfo.name) {
+        customerName = propertyData.ownerInfo.name;
+      }
+      // Try to get from customerData (if available)
+      else if (propertyData.customerData) {
+        const { firstName, lastName } = propertyData.customerData;
+        if (firstName || lastName) {
+          customerName = `${firstName || ''} ${lastName || ''}`.trim();
+        }
+      }
+      
+      // Format the property name with customer name and address
       let propertyName = 'Primary Property';
       if (propertyData.address) {
-        propertyName = `${propertyData.address.streetAddress}, ${propertyData.address.city}`;
+        propertyName = customerName ? 
+          `${customerName} - ${propertyData.address.streetAddress}, ${propertyData.address.city}` : 
+          `${propertyData.address.streetAddress}, ${propertyData.address.city}`;
+      } else if (customerName) {
+        propertyName = `${customerName} Property`;
       }
+      
       
       // Format property data for Zuper API
       const formattedPropertyData = {
@@ -298,6 +319,35 @@ class ZuperService {
             {
               label: "Bathrooms",
               value: String(propertyData.attributes?.bathrooms || '')
+            },
+            // Add all required property features from Rentcast
+            {
+              label: "Fireplace",
+              value: propertyData.features?.hasFireplace ? 'Yes' : 'No'
+            },
+            {
+              label: "Floor Count",
+              value: String(propertyData.features?.floorCount || '1')
+            },
+            {
+              label: "Garage",
+              value: propertyData.features?.hasGarage ? 'Yes' : 'No'
+            },
+            {
+              label: "Garage Type",
+              value: String(propertyData.features?.garageType || '')
+            },
+            {
+              label: "Heating",
+              value: propertyData.features?.hasHeating ? 'Yes' : 'No'
+            },
+            {
+              label: "Heating Type",
+              value: String(propertyData.features?.heatingType || '')
+            },
+            {
+              label: "Unit Count",
+              value: String(propertyData.features?.unitCount || '1')
             }
           ]
         }
