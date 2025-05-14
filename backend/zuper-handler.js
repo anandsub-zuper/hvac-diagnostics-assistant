@@ -1,4 +1,4 @@
-// backend/zuper-handler.js - Add this new file to your backend
+// backend/zuper-handler.js - FIXED VERSION
 
 const axios = require('axios');
 require('dotenv').config();
@@ -16,8 +16,8 @@ class ZuperHandler {
       console.error('ERROR: ZUPER_API_KEY environment variable not set');
     }
     
-    // Determine the base URL based on region
-    this.baseUrl = `https://${this.region}-west-1c.zuperpro.com/api`;
+    // FIXED: Properly format the base URL without duplication
+    this.baseUrl = `https://${this.region}.zuperpro.com/api`;
     console.log(`Zuper API configured for region: ${this.region}`);
     console.log(`Using Zuper API base URL: ${this.baseUrl}`);
   }
@@ -57,7 +57,9 @@ class ZuperHandler {
         'Content-Type': 'application/json',
         'x-api-key': this.apiKey
       },
-      timeout: 30000
+      timeout: 30000,
+      // ADDED: Prevent redirects to HTML pages
+      maxRedirects: 0
     };
     
     // Add query parameters if provided
@@ -76,7 +78,19 @@ class ZuperHandler {
       
       console.log(`\n===== ZUPER API RESPONSE =====`);
       console.log(`Status: ${response.status}`);
-      console.log(`Data: ${JSON.stringify(response.data, null, 2).substring(0, 500)}...`);
+      
+      // ADDED: Check if response is HTML instead of JSON
+      const contentType = response.headers['content-type'] || '';
+      if (contentType.includes('text/html')) {
+        console.error('Received HTML response instead of JSON');
+        throw new Error('Authentication failed - received HTML instead of JSON. Check API key and region.');
+      }
+      
+      // Log truncated response data
+      const responseDataStr = typeof response.data === 'string' 
+        ? response.data.substring(0, 500)
+        : JSON.stringify(response.data, null, 2).substring(0, 500);
+      console.log(`Data: ${responseDataStr}...`);
       
       return response.data;
     } catch (error) {
@@ -88,8 +102,21 @@ class ZuperHandler {
         console.error('Error details:', {
           status: error.response.status,
           statusText: error.response.statusText,
-          data: error.response.data
+          data: error.response.data,
+          headers: error.response.headers
         });
+        
+        // Check if the response is HTML (login page redirect)
+        const contentType = error.response.headers['content-type'] || '';
+        if (contentType.includes('text/html')) {
+          console.error('Received HTML error response - likely an authentication issue');
+          return {
+            error: true,
+            status: error.response.status,
+            message: 'Authentication failed - check API key and region settings',
+            details: 'Received HTML instead of JSON - usually means API key is invalid or expired'
+          };
+        }
         
         throw {
           status: error.response.status,
@@ -119,28 +146,29 @@ class ZuperHandler {
   }
   
   /**
-   * Helper method to search for customers
-   * @param {Object} params - Search parameters
-   * @returns {Promise<Object>} - Search results
-   */
-  async searchCustomers(params) {
-    return this.processRequest({
-      endpoint: 'customers',
-      method: 'GET',
-      params
-    });
-  }
-  
-  /**
    * Helper method to create a customer
    * @param {Object} customerData - Customer data
    * @returns {Promise<Object>} - Created customer
    */
   async createCustomer(customerData) {
+    // FIXED: Match the request format to the curl example
+    const formattedData = {
+      customer: {
+        customer_first_name: customerData.customer?.customer_first_name || customerData.customer_first_name || '',
+        customer_last_name: customerData.customer?.customer_last_name || customerData.customer_last_name || '',
+        customer_email: customerData.customer?.customer_email || customerData.customer_email || '',
+        customer_phone: customerData.customer?.customer_phone || customerData.customer_phone || '',
+        customer_company_name: customerData.customer?.customer_company_name || customerData.customer_company_name || '',
+        customer_address: customerData.customer?.customer_address || customerData.customer_address,
+        customer_billing_address: customerData.customer?.customer_billing_address || customerData.customer_billing_address,
+        is_portal_enabled: false
+      }
+    };
+    
     return this.processRequest({
       endpoint: 'customers_new',
       method: 'POST',
-      data: customerData
+      data: formattedData
     });
   }
   
@@ -150,47 +178,26 @@ class ZuperHandler {
    * @returns {Promise<Object>} - Created property
    */
   async createProperty(propertyData) {
+    // FIXED: Match the request format to the curl example
+    const formattedData = {
+      property: {
+        property_name: propertyData.property?.property_name || propertyData.property_name || 'Primary Property',
+        property_type: propertyData.property?.property_type || propertyData.property_type || 'residential',
+        // FIXED: Use the correct format for customer connection
+        property_customer: [
+          {
+            customer: propertyData.customer_id
+          }
+        ],
+        address: propertyData.property?.address || propertyData.address,
+        custom_fields: propertyData.property?.custom_fields || propertyData.custom_fields || []
+      }
+    };
+
     return this.processRequest({
       endpoint: 'properties',
       method: 'POST',
-      data: propertyData
-    });
-  }
-  
-  /**
-   * Helper method to create an asset
-   * @param {Object} assetData - Asset data
-   * @returns {Promise<Object>} - Created asset
-   */
-  async createAsset(assetData) {
-    return this.processRequest({
-      endpoint: 'assets',
-      method: 'POST',
-      data: assetData
-    });
-  }
-  
-  /**
-   * Helper method to create a job
-   * @param {Object} jobData - Job data
-   * @returns {Promise<Object>} - Created job
-   */
-  async createJob(jobData) {
-    return this.processRequest({
-      endpoint: 'jobs',
-      method: 'POST',
-      data: jobData
-    });
-  }
-  
-  /**
-   * Helper method to get job categories
-   * @returns {Promise<Object>} - Job categories
-   */
-  async getJobCategories() {
-    return this.processRequest({
-      endpoint: 'job-categories',
-      method: 'GET'
+      data: formattedData
     });
   }
 }
