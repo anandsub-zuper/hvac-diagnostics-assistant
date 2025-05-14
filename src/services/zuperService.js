@@ -471,7 +471,7 @@ class ZuperService {
   async getAssetCategories() {
     try {
       // Use the correct endpoint for asset categories
-      const response = await this.makeProxiedRequest('asset-categories', 'GET');
+      const response = await this.makeProxiedRequest('assets/category', 'GET');
       
       // Check for error response
       if (response && response.error) {
@@ -479,8 +479,18 @@ class ZuperService {
         return [];
       }
       
-      // Extract categories array
-      return response.data || [];
+      // Extract categories array - properly handle the response structure
+      if (response && response.type === "success" && Array.isArray(response.data)) {
+        // Map the response to a simpler format with id and name
+        return response.data.map(category => ({
+          id: category.category_uid,
+          name: category.category_name,
+          isActive: category.is_active
+        })).filter(category => category.isActive !== false); // Only include active categories
+      }
+      
+      console.warn('Unexpected format in asset categories response:', response);
+      return [];
     } catch (error) {
       console.error('Error fetching asset categories from Zuper:', error);
       return [];
