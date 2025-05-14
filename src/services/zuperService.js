@@ -321,27 +321,28 @@ class ZuperService {
           },
           // FIXED: Format custom fields as per API requirements
           // Now includes property features from Rentcast
+          // IMPORTANT: Converting ALL values to strings to avoid validation errors
           custom_fields: [
             // Property attributes
             {
               label: "Year Built",
-              value: propertyData.attributes?.yearBuilt || ''
+              value: String(propertyData.attributes?.yearBuilt || '')
             },
             {
               label: "Square Feet",
-              value: propertyData.attributes?.squareFeet || ''
+              value: String(propertyData.attributes?.squareFeet || '')
             },
             {
               label: "Bedrooms",
-              value: propertyData.attributes?.bedrooms || ''
+              value: String(propertyData.attributes?.bedrooms || '')
             },
             {
               label: "Bathrooms",
-              value: propertyData.attributes?.bathrooms || ''
+              value: String(propertyData.attributes?.bathrooms || '')
             },
             {
               label: "Lot Size",
-              value: propertyData.attributes?.lotSize || ''
+              value: String(propertyData.attributes?.lotSize || '')
             },
             
             // Property features from Rentcast
@@ -367,11 +368,11 @@ class ZuperService {
             },
             {
               label: "Number of Floors",
-              value: propertyData.features?.floorCount?.toString() || '1'
+              value: String(propertyData.features?.floorCount || '1')
             },
             {
               label: "Garage Type",
-              value: propertyData.features?.garageType || ''
+              value: String(propertyData.features?.garageType || '')
             },
             {
               label: "Heating System",
@@ -379,11 +380,11 @@ class ZuperService {
             },
             {
               label: "Heating Type",
-              value: propertyData.features?.heatingType || ''
+              value: String(propertyData.features?.heatingType || '')
             },
             {
               label: "Unit Count",
-              value: propertyData.features?.unitCount?.toString() || '1'
+              value: String(propertyData.features?.unitCount || '1')
             }
           ]
         }
