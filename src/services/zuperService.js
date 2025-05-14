@@ -309,7 +309,7 @@ class ZuperService {
       console.log('Creating property with data:', JSON.stringify(formattedPropertyData, null, 2));
 
       // Make API request through our backend proxy
-      const response = await this.makeProxiedRequest('properties', 'POST', null, formattedPropertyData);
+      const response = await this.makeProxiedRequest('property', 'POST', null, formattedPropertyData);
       
       console.log('Property creation response:', response);
       
