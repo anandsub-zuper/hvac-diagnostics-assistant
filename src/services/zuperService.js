@@ -287,6 +287,9 @@ class ZuperService {
   // Updated propertyData formatter for zuperService.js
 // This function should match the exact structure expected by the Zuper API
 
+// Updated propertyData formatter for zuperService.js
+// This function should match the exact structure expected by the Zuper API
+
 async createProperty(customerId, propertyData) {
   try {
     // Extracting owner info
@@ -295,11 +298,25 @@ async createProperty(customerId, propertyData) {
     const ownerLastName = propertyData.ownerInfo?.name ? 
       propertyData.ownerInfo.name.split(' ').slice(1).join(' ') : '';
 
+    // FIXED: Create a unique property name by concatenating customer name and address
+    // This prevents the "duplicate property" error
+    const customerFullName = `${ownerFirstName || ''} ${ownerLastName || ''}`.trim();
+    const streetAddress = propertyData.address.streetAddress || '';
+    const city = propertyData.address.city || '';
+    
+    // Create a unique property name with timestamp to ensure uniqueness
+    const uniquePropertyName = [
+      customerFullName,
+      streetAddress,
+      city,
+      `(${Date.now().toString().substring(8)})`  // Add timestamp suffix for guaranteed uniqueness
+    ].filter(Boolean).join(' - ');
+    
     // FIXED: Format property data to EXACTLY match the Zuper API requirements
     const formattedPropertyData = {
       property: {
-        // Basic property info
-        property_name: propertyData.propertyName || 'Primary Property',
+        // Use unique property name to prevent duplicates
+        property_name: uniquePropertyName || 'Property',
         property_type: propertyData.propertyType || 'residential',
         
         // IMPORTANT: Property customer field for customer assignment
