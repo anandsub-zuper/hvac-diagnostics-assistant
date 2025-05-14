@@ -251,9 +251,14 @@ class ZuperService {
         throw new Error('Empty response from customer creation');
       }
       
-      // Check for error messages in the response
-      if (response.error || response.message) {
+      // FIXED: Only treat as error if we have an actual error or a failure message
+      if (response.error || (response.message && !response.message.toLowerCase().includes('success'))) {
         throw new Error(`Customer creation failed: ${response.message || JSON.stringify(response.error)}`);
+      }
+      
+      // Check specifically for success message and log it
+      if (response.message && response.message.toLowerCase().includes('success')) {
+        console.log('Success message from Zuper API:', response.message);
       }
       
       if (!response.id && !response.customer_id) {
@@ -315,8 +320,9 @@ class ZuperService {
               undefined
           },
           // FIXED: Format custom fields as per API requirements
+          // Now includes property features from Rentcast
           custom_fields: [
-            // Format custom fields as an array of objects
+            // Property attributes
             {
               label: "Year Built",
               value: propertyData.attributes?.yearBuilt || ''
@@ -336,6 +342,48 @@ class ZuperService {
             {
               label: "Lot Size",
               value: propertyData.attributes?.lotSize || ''
+            },
+            
+            // Property features from Rentcast
+            {
+              label: "Swimming Pool",
+              value: propertyData.features?.hasPool ? 'Yes' : 'No'
+            },
+            {
+              label: "Garage",
+              value: propertyData.features?.hasGarage ? 'Yes' : 'No'
+            },
+            {
+              label: "Central Air",
+              value: propertyData.features?.hasCentralAir ? 'Yes' : 'No'
+            },
+            {
+              label: "Basement",
+              value: propertyData.features?.hasBasement ? 'Yes' : 'No'
+            },
+            {
+              label: "Fireplace",
+              value: propertyData.features?.hasFireplace ? 'Yes' : 'No'
+            },
+            {
+              label: "Number of Floors",
+              value: propertyData.features?.floorCount?.toString() || '1'
+            },
+            {
+              label: "Garage Type",
+              value: propertyData.features?.garageType || ''
+            },
+            {
+              label: "Heating System",
+              value: propertyData.features?.hasHeating ? 'Yes' : 'No'
+            },
+            {
+              label: "Heating Type",
+              value: propertyData.features?.heatingType || ''
+            },
+            {
+              label: "Unit Count",
+              value: propertyData.features?.unitCount?.toString() || '1'
             }
           ]
         }
@@ -351,9 +399,14 @@ class ZuperService {
         throw new Error('Empty response from property creation');
       }
       
-      // Check for errors
-      if (response.error || response.message) {
+      // FIXED: Only treat as error if we have an actual error or a failure message
+      if (response.error || (response.message && !response.message.toLowerCase().includes('success'))) {
         throw new Error(`Property creation failed: ${response.message || JSON.stringify(response.error)}`);
+      }
+      
+      // Check specifically for success message and log it
+      if (response.message && response.message.toLowerCase().includes('success')) {
+        console.log('Success message from Zuper API:', response.message);
       }
       
       // Extract property ID
