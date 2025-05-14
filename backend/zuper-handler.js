@@ -231,82 +231,90 @@ class ZuperHandler {
    * @param {Object} jobData - Job data
    * @returns {Promise<Object>} - Created job response
    */
-  async createJob(jobData) {
-    try {
-      // Check for required fields
-      if (!jobData.job || !jobData.job.customer_id || !jobData.job.property_id) {
-        throw new Error('Missing required job fields: customer_id and property_id are required');
-      }
-      
-      // Format assets correctly - should be an array of objects with 'asset' property
-      if (jobData.job.assets && Array.isArray(jobData.job.assets)) {
-        // Make sure each asset is in the { asset: "id" } format
-        jobData.job.assets = jobData.job.assets.map(asset => {
-          if (typeof asset === 'string') {
-            return { asset: asset };
-          } else if (typeof asset === 'object' && asset.asset) {
-            return asset;
-          } else if (typeof asset === 'object' && asset.id) {
-            return { asset: asset.id };
-          }
-          return asset;
-        });
-      }
-      
-      // Ensure due_date is properly formatted
-      if (jobData.job.due_date) {
-        // Check if it's not already in ISO format
-        if (!jobData.job.due_date.includes('T')) {
-          // Convert YYYY-MM-DD to ISO format
-          const date = new Date(jobData.job.due_date);
-          jobData.job.due_date = date.toISOString();
-        }
-      }
-      
-      // Make the API request
-      console.log('Creating job with formatted data:', JSON.stringify(jobData, null, 2));
-      
-      const response = await this.processRequest({
-        endpoint: 'jobs',
-        method: 'POST',
-        data: jobData
-      });
-      
-      console.log('Job creation response:', response);
-      
-      // Extract job ID - could be in different places depending on API response
-      let jobId = null;
-      
-      if (response.job_uid) {
-        jobId = response.job_uid;
-      } else if (response.id) {
-        jobId = response.id;
-      } else if (response.data && response.data.job_uid) {
-        jobId = response.data.job_uid;
-      } else if (response.message && typeof response.message === 'string') {
-        // Try to extract UUID from success message
-        const uuidMatch = response.message.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
-        if (uuidMatch) {
-          jobId = uuidMatch[1];
-        }
-      }
-      
-      if (!jobId) {
-        console.error('Could not find job ID in response:', response);
-        throw new Error('Failed to extract job ID from response');
-      }
-      
-      console.log('Successfully created job with ID:', jobId);
-      
-      return {
-        id: jobId,
-        message: response.message || 'Job created successfully'
-      };
-    } catch (error) {
-      console.error('Error creating job:', error);
-      throw error;
+// In backend/zuper-handler.js - Update the createJob method
+
+async createJob(jobData) {
+  try {
+    // Check for required fields
+    if (!jobData.job || !jobData.job.customer_id || !jobData.job.property_id) {
+      throw new Error('Missing required job fields: customer_id and property_id are required');
     }
+    
+    // Map title to job_title if needed
+    if (!jobData.job.job_title && jobData.job.title) {
+      jobData.job.job_title = jobData.job.title;
+      delete jobData.job.title; // Remove the incorrect field
+    }
+    
+    // Format assets correctly - should be an array of objects with 'asset' property
+    if (jobData.job.assets && Array.isArray(jobData.job.assets)) {
+      // Make sure each asset is in the { asset: "id" } format
+      jobData.job.assets = jobData.job.assets.map(asset => {
+        if (typeof asset === 'string') {
+          return { asset: asset };
+        } else if (typeof asset === 'object' && asset.asset) {
+          return asset;
+        } else if (typeof asset === 'object' && asset.id) {
+          return { asset: asset.id };
+        }
+        return asset;
+      });
+    }
+    
+    // Ensure due_date is properly formatted
+    if (jobData.job.due_date) {
+      // Check if it's not already in ISO format
+      if (!jobData.job.due_date.includes('T')) {
+        // Convert YYYY-MM-DD to ISO format
+        const date = new Date(jobData.job.due_date);
+        jobData.job.due_date = date.toISOString().split('T')[0] + ' 00:00:00';
+      }
+    }
+    
+    // Make the API request
+    console.log('Creating job with formatted data:', JSON.stringify(jobData, null, 2));
+    
+    const response = await this.processRequest({
+      endpoint: 'jobs',
+      method: 'POST',
+      data: jobData
+    });
+    
+    console.log('Job creation response:', response);
+    
+    // Extract job ID - could be in different places depending on API response
+    let jobId = null;
+    
+    if (response.job_uid) {
+      jobId = response.job_uid;
+    } else if (response.id) {
+      jobId = response.id;
+    } else if (response.data && response.data.job_uid) {
+      jobId = response.data.job_uid;
+    } else if (response.message && typeof response.message === 'string') {
+      // Try to extract UUID from success message
+      const uuidMatch = response.message.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+      if (uuidMatch) {
+        jobId = uuidMatch[1];
+      }
+    }
+    
+    if (!jobId) {
+      console.error('Could not find job ID in response:', response);
+      throw new Error('Failed to extract job ID from response');
+    }
+    
+    console.log('Successfully created job with ID:', jobId);
+    
+    return {
+      id: jobId,
+      message: response.message || 'Job created successfully'
+    };
+  } catch (error) {
+    console.error('Error creating job:', error);
+    throw error;
   }
+}
   
   /**
    * Helper method to get job categories
