@@ -215,6 +215,8 @@ const DiagnosticTool = ({ isOnline, diagnosticData, setDiagnosticData }) => {
 // Updated handleCustomerDetailsSubmit function for DiagnosticTool.js
 // Replace the existing function with this improved version
 
+// Updated customerDetailsSubmit handler in DiagnosticTool.js
+
 // Handle customer details submission
 const handleCustomerDetailsSubmit = async (customer) => {
   setCustomerData(customer);
@@ -241,32 +243,16 @@ const handleCustomerDetailsSubmit = async (customer) => {
             throw new Error('Failed to create customer - empty response');
           }
           
-          customerId = createdCustomer.id || createdCustomer.customer_id;
+          customerId = createdCustomer.id;
           if (!customerId) {
             console.warn('No ID in customer creation response:', createdCustomer);
-            // If we still got a success message, we'll continue anyway
-            if (createdCustomer.success || 
-                (createdCustomer.message && createdCustomer.message.toLowerCase().includes('success'))) {
-              console.log('Got success message but no ID. Using temporary ID for testing...');
-              customerId = `temp-${Date.now()}`;
-            } else {
-              throw new Error('Failed to create customer - no ID returned');
-            }
+            throw new Error('Failed to create customer - no ID returned');
           }
           
           console.log('New customer created with ID:', customerId);
         } catch (customerError) {
           console.error('Error creating customer:', customerError);
-          
-          // Check if the error contains a success message
-          if (customerError.message && customerError.message.toLowerCase().includes('success')) {
-            console.log('Despite error, customer was created successfully. Continuing...');
-            // Extract a temporary ID from the error message if possible
-            const idMatch = customerError.message.match(/id[:\s]+([a-zA-Z0-9-]+)/i);
-            customerId = idMatch ? idMatch[1] : `temp-${Date.now()}`;
-          } else {
-            throw new Error(`Customer creation failed: ${customerError.message}`);
-          }
+          throw new Error(`Customer creation failed: ${customerError.message}`);
         }
       }
 
@@ -280,17 +266,10 @@ const handleCustomerDetailsSubmit = async (customer) => {
           throw new Error('Failed to create property - empty response');
         }
         
-        let propertyId = createdProperty.id || createdProperty.property_id;
+        let propertyId = createdProperty.id;
         if (!propertyId) {
           console.warn('No ID in property creation response:', createdProperty);
-          // If we still got a success message, we'll continue anyway
-          if (createdProperty.success || 
-              (createdProperty.message && createdProperty.message.toLowerCase().includes('success'))) {
-            console.log('Got success message but no ID. Using temporary ID for testing...');
-            propertyId = `temp-${Date.now()}`;
-          } else {
-            throw new Error('Failed to create property - no ID returned');
-          }
+          throw new Error('Failed to create property - no ID returned');
         }
         
         console.log('New property created with ID:', propertyId);
@@ -306,22 +285,7 @@ const handleCustomerDetailsSubmit = async (customer) => {
         console.log('Property ID:', propertyId);
       } catch (propertyError) {
         console.error('Error creating property:', propertyError);
-        
-        // Check if the error contains a success message
-        if (propertyError.message && propertyError.message.toLowerCase().includes('success')) {
-          console.log('Despite error, property was created successfully. Continuing...');
-          // Extract a temporary ID from the error message if possible
-          const idMatch = propertyError.message.match(/id[:\s]+([a-zA-Z0-9-]+)/i);
-          const propertyId = idMatch ? idMatch[1] : `temp-${Date.now()}`;
-          
-          // Save the IDs
-          setZuperIds({
-            customerId,
-            propertyId
-          });
-        } else {
-          throw new Error(`Property creation failed: ${propertyError.message}`);
-        }
+        throw new Error(`Property creation failed: ${propertyError.message}`);
       }
     } catch (err) {
       console.error('Error with Zuper integration:', err);
@@ -343,6 +307,7 @@ const handleCustomerDetailsSubmit = async (customer) => {
   
   // Continue to HVAC system type selection
   setCurrentStep(STEPS.SYSTEM_TYPE);
+};
 };
 
   // Handle system type selection
