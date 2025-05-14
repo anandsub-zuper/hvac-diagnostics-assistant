@@ -387,73 +387,114 @@ class ZuperService {
    * @param {Object} assetData - Asset data
    * @returns {Promise<Object>} Created asset data
    */
-  async createAsset(assetData) {
-    try {
-      // Format asset data according to Zuper API
-      const formattedAssetData = {
-        asset: {
-          asset_name: assetData.name,
-          asset_type: assetData.type || 'HVAC',
-          model: assetData.model || '',
-          manufacturer: assetData.manufacturer || '',
-          serial_number: assetData.serialNumber || '',
-          status: assetData.status || 'active',
-          customer_id: assetData.customerId,
-          property_id: assetData.propertyId,
-          
-          // Format dates
-          installation_date: assetData.installationDate ? new Date(assetData.installationDate).toISOString() : undefined,
-          warranty_expiry_date: assetData.warrantyExpiryDate ? new Date(assetData.warrantyExpiryDate).toISOString() : undefined,
-          
-          notes: assetData.notes || '',
-          
-          // Format custom fields
-          custom_fields: [
-            {
-              label: "System Type",
-              value: String(assetData.systemType || '')
-            },
-            {
-              label: "Tonnage",
-              value: String(assetData.tonnage || '')
-            },
-            {
-              label: "Efficiency Rating",
-              value: String(assetData.efficiencyRating || '')
-            }
-          ]
-        }
-      };
+// Update this method in src/services/zuperService.js
 
-      console.log('Creating asset with data:', JSON.stringify(formattedAssetData, null, 2));
-
-      // Make API request through our backend proxy
-      const response = await this.makeProxiedRequest('assets', 'POST', null, formattedAssetData);
-      
-      console.log('Asset creation response:', response);
-      
-      // Extract asset ID
-      const assetId = response.id || response.asset_id;
-      
-      if (!assetId) {
-        console.error('No asset ID found in response:', response);
-        throw new Error('Failed to create asset: No ID returned');
+/**
+ * Create an asset (equipment) in Zuper
+ * @param {Object} assetData - Asset data
+ * @returns {Promise<Object>} Created asset data
+ */
+async createAsset(assetData) {
+  try {
+    // Generate a unique asset code (6 digits)
+    const assetCode = `A${Math.floor(100000 + Math.random() * 900000)}`;
+    
+    // Format asset data according to Zuper API
+    const formattedAssetData = {
+      asset: {
+        // Required fields
+        asset_code: assetCode,
+        asset_name: assetData.name,
+        asset_category: assetData.assetCategory, // This must be provided now
+        
+        // Connect to customer and property with correct field names
+        customer: assetData.customerId,
+        property: assetData.propertyId,
+        
+        // Additional fields
+        asset_serial_number: assetData.serialNumber || '',
+        purchase_date: assetData.installationDate || undefined,
+        warranty_expiry_date: assetData.warrantyExpiryDate || undefined,
+        
+        // Custom fields for manufacturer, model and other attributes
+        custom_fields: [
+          {
+            label: "Manufacturer",
+            value: String(assetData.manufacturer || '')
+          },
+          {
+            label: "Model",
+            value: String(assetData.model || '')
+          },
+          {
+            label: "System Type",
+            value: String(assetData.systemType || '')
+          },
+          {
+            label: "Tonnage",
+            value: String(assetData.tonnage || '')
+          },
+          {
+            label: "Efficiency Rating",
+            value: String(assetData.efficiencyRating || '')
+          }
+        ]
       }
-      
-      console.log('Asset created successfully with ID:', assetId);
-      
-      return {
-        id: assetId,
-        name: assetData.name,
-        manufacturer: assetData.manufacturer,
-        model: assetData.model,
-        serialNumber: assetData.serialNumber
-      };
-    } catch (error) {
-      console.error('Error creating asset in Zuper:', error);
-      throw error;
+    };
+
+    console.log('Creating asset with data:', JSON.stringify(formattedAssetData, null, 2));
+
+    // Make API request through our backend proxy
+    const response = await this.makeProxiedRequest('assets', 'POST', null, formattedAssetData);
+    
+    console.log('Asset creation response:', response);
+    
+    // Extract asset ID
+    const assetId = response.id || response.asset_id || 
+                   (response.data && response.data.asset_id);
+    
+    if (!assetId) {
+      console.error('No asset ID found in response:', response);
+      throw new Error('Failed to create asset: No ID returned');
     }
+    
+    console.log('Asset created successfully with ID:', assetId);
+    
+    return {
+      id: assetId,
+      name: assetData.name,
+      manufacturer: assetData.manufacturer,
+      model: assetData.model,
+      serialNumber: assetData.serialNumber
+    };
+  } catch (error) {
+    console.error('Error creating asset in Zuper:', error);
+    throw error;
   }
+}
+
+/**
+ * Get asset categories from Zuper
+ * @returns {Promise<Array>} List of asset categories
+ */
+async getAssetCategories() {
+  try {
+    // Use the correct endpoint for asset categories
+    const response = await this.makeProxiedRequest('asset-categories', 'GET');
+    
+    // Check for error response
+    if (response && response.error) {
+      console.error('Error fetching asset categories:', response.error);
+      return [];
+    }
+    
+    // Extract categories array
+    return response.data || [];
+  } catch (error) {
+    console.error('Error fetching asset categories from Zuper:', error);
+    return [];
+  }
+
 
   /**
    * Get job categories from Zuper
