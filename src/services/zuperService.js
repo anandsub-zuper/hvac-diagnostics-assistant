@@ -302,7 +302,7 @@ class ZuperService {
           },
           
           // Add custom fields for property attributes
-          custom_fields: [
+            custom_fields: [
             {
               label: "Year Built",
               value: String(propertyData.attributes?.yearBuilt || '')
@@ -322,6 +322,35 @@ class ZuperService {
             {
               label: "Central Air",
               value: propertyData.features?.hasCentralAir ? 'Yes' : 'No'
+            },
+            // Add all required property features from Rentcast
+            {
+              label: "Fireplace",
+              value: propertyData.features?.hasFireplace ? 'Yes' : 'No'
+            },
+            {
+              label: "Floor Count",
+              value: String(propertyData.features?.floorCount || '1')
+            },
+            {
+              label: "Garage",
+              value: propertyData.features?.hasGarage ? 'Yes' : 'No'
+            },
+            {
+              label: "Garage Type",
+              value: String(propertyData.features?.garageType || '')
+            },
+            {
+              label: "Heating",
+              value: propertyData.features?.hasHeating ? 'Yes' : 'No'
+            },
+            {
+              label: "Heating Type",
+              value: String(propertyData.features?.heatingType || '')
+            },
+            {
+              label: "Unit Count",
+              value: String(propertyData.features?.unitCount || '1')
             }
           ]
         }
