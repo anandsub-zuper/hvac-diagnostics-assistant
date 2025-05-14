@@ -165,11 +165,14 @@ class ZuperService {
    * @param {Object} customerData - Customer data to create
    * @returns {Promise<Object>} Created customer data
    */
-  async createCustomer(customerData) {
+  /**
+ * Create a customer in Zuper with exact response handling
+ * @param {Object} customerData - Customer data to create
+ * @returns {Promise<Object>} Created customer data
+ */
+async createCustomer(customerData) {
   try {
-    console.log('Starting customer creation with data:', customerData);
-    
-    // First, check if customer already exists
+    // Check for existing customer
     let existingCustomer = null;
     if (customerData.email || customerData.phone) {
       existingCustomer = await this.searchCustomer(customerData.email, customerData.phone);
@@ -181,170 +184,116 @@ class ZuperService {
       return existingCustomer;
     }
     
-    // COMPLETE PAYLOAD: Format customer data according to Zuper API requirements
+    // Format customer data for Zuper API
     const formattedCustomerData = {
       customer: {
-        // Basic customer information
         customer_first_name: customerData.firstName,
         customer_last_name: customerData.lastName,
         customer_email: customerData.email || '',
-        customer_display_name: `${customerData.firstName} ${customerData.lastName}`,
-        customer_company_name: customerData.companyName || '',
-        customer_type: customerData.customerType || 'residential',
-        customer_notes: customerData.notes || '',
-        
-        // Contact information
         customer_contact_no: {
           mobile: customerData.phone || '',
           home: '',
           work: ''
         },
+        customer_company_name: customerData.companyName || '',
+        customer_notes: customerData.notes || '',
+        customer_type: customerData.customerType || 'residential',
         
-        // Customer property address (if available)
+        // Format property_address for address
         property_address: customerData.address ? {
-          street: customerData.address.streetAddress || '',
-          city: customerData.address.city || '',
-          state: customerData.address.state || '',
+          street: customerData.address.streetAddress,
+          city: customerData.address.city,
+          state: customerData.address.state,
           country: customerData.address.country || 'USA',
-          zip_code: customerData.address.zipCode || '',
-          landmark: '',
-          first_name: customerData.firstName || '',
-          last_name: customerData.lastName || '',
-          phone_number: customerData.phone || '',
-          email: customerData.email || '',
-          geo_cordinates: customerData.address.latitude && customerData.address.longitude ? 
-            [customerData.address.latitude, customerData.address.longitude] : 
-            undefined
+          zip_code: customerData.address.zipCode,
+          first_name: customerData.firstName,
+          last_name: customerData.lastName,
+          phone_number: customerData.phone,
+          email: customerData.email
         } : undefined,
         
-        // Billing address (same as property address)
+        // Add billing address (same as property address)
         customer_billing_address: customerData.address ? {
-          street: customerData.address.streetAddress || '',
-          city: customerData.address.city || '',
-          state: customerData.address.state || '',
+          street: customerData.address.streetAddress,
+          city: customerData.address.city,
+          state: customerData.address.state,
           country: customerData.address.country || 'USA',
-          zip_code: customerData.address.zipCode || '',
-          landmark: '',
-          first_name: customerData.firstName || '',
-          last_name: customerData.lastName || '',
-          phone_number: customerData.phone || '',
-          email: customerData.email || ''
+          zip_code: customerData.address.zipCode,
+          first_name: customerData.firstName,
+          last_name: customerData.lastName,
+          phone_number: customerData.phone,
+          email: customerData.email
         } : undefined,
         
-        // Shipping address (same as property address)
-        customer_shipping_address: customerData.address ? {
-          street: customerData.address.streetAddress || '',
-          city: customerData.address.city || '',
-          state: customerData.address.state || '',
-          country: customerData.address.country || 'USA',
-          zip_code: customerData.address.zipCode || '',
-          landmark: '',
-          first_name: customerData.firstName || '',
-          last_name: customerData.lastName || '',
-          phone_number: customerData.phone || '',
-          email: customerData.email || ''
-        } : undefined,
-        
-        // Portal access
         is_portal_enabled: false,
         
-        // Financial accounts
+        // Required fields from exact API format
         accounts: {
           ltv: 0,
           receivables: 0,
           credits: 0
         },
-        
-        // Tax information
         tax: {
-          tax_exempt: false,
-          exemption_no: '',
-          reason: ''
-        },
-        
-        // Payment information
-        payment_info: {
-          payment_terms: 'due_on_receipt',
-          payment_mode: []
-        },
-        
-        // Organization information (if needed)
-        organization_uid: null,
-        
-        // Additional metadata
-        meta_data: {
-          source: 'HVAC Diagnostics Assistant',
-          created_at: new Date().toISOString()
-        },
-        
-        // Custom fields for additional properties
-        custom_fields: [
-          {
-            label: "System Type",
-            value: customerData.systemType || '',
-            type: "TEXT",
-            module_name: "CUSTOMER"
-          },
-          {
-            label: "Lead Source",
-            value: "Web App",
-            type: "TEXT",
-            module_name: "CUSTOMER"
-          }
-        ]
+          tax_exempt: false
+        }
       }
     };
 
-    console.log('Creating customer with formatted data:', JSON.stringify(formattedCustomerData, null, 2));
+    console.log('Creating customer with data:', JSON.stringify(formattedCustomerData, null, 2));
 
-    // Make API request
+    // Make API request to create customer
     const response = await this.makeProxiedRequest('customers', 'POST', null, formattedCustomerData);
     
-    // Process response
+    // Log full response for debugging
     console.log('Full customer creation response:', JSON.stringify(response, null, 2));
     
-    // Extract customer ID
+    // CRITICAL: Extract customer ID from the exact response format provided
+    // The response has customer_uid at the top level:
+    // {
+    //   "type": "success",
+    //   "message": "Customer created successfully",
+    //   "customer_uid": "99a0d622-a3bd-4e31-90ab-a654279238ba"
+    // }
+    
     let customerId = null;
     
-    // Check for the known response format where ID is in data.customer_uid
-    if (response.data && response.data.customer_uid) {
-      customerId = response.data.customer_uid;
-      console.log('✅ Found customer ID in data.customer_uid:', customerId);
-    }
-    // Fallback checks
-    else if (response.data && response.data.uid) {
-      customerId = response.data.uid;
-    }
-    else if (response.customer_uid) {
+    // First check for customer_uid at top level (exact format)
+    if (response && response.customer_uid) {
       customerId = response.customer_uid;
+      console.log('✅ Found customer ID at top level:', customerId);
+    } 
+    // Fallback checks
+    else if (response.data && response.data.customer_uid) {
+      customerId = response.data.customer_uid;
     }
-    else if (response.id || response.customer_id) {
-      customerId = response.id || response.customer_id;
+    else if (response.id) {
+      customerId = response.id;
     }
     
-    // If no ID but success message, try to retrieve customer
+    // If no ID found but success message exists
     if (!customerId && response.message && response.message.toLowerCase().includes('success')) {
-      console.warn('⚠️ Success message but no customer ID found:', response.message);
+      console.warn('⚠️ Success message but no ID found:', response.message);
       
+      // Try to retrieve the customer
       if (customerData.email || customerData.phone) {
-        console.log('Attempting to retrieve newly created customer by email/phone...');
         try {
+          console.log('Attempting to retrieve customer by email/phone after creation');
           const retrievedCustomer = await this.searchCustomer(customerData.email, customerData.phone);
           
           if (retrievedCustomer && retrievedCustomer.id) {
             customerId = retrievedCustomer.id;
-            console.log('Retrieved customer ID after creation:', customerId);
+            console.log('Retrieved customer ID:', customerId);
           }
         } catch (searchError) {
-          console.error('Failed to retrieve customer after creation:', searchError);
+          console.error('Error retrieving customer after creation:', searchError);
         }
       }
-      
-      // If still no ID, use temporary one
-      if (!customerId) {
-        customerId = `temp-customer-${Date.now()}`;
-        console.warn('⚠️ Using temporary ID:', customerId);
-      }
+    }
+    
+    // If still no ID, use temporary one but log a warning
+    if (!customerId) {
+      customerId = `temp-customer-${Date.now()}`;
+      console.warn('⚠️ Could not find customer ID in response. Using temporary ID:', customerId);
     }
     
     return {
@@ -374,77 +323,48 @@ class ZuperService {
  */
 async createProperty(customerId, propertyData) {
   try {
-    // Extracting owner info
-    const ownerFirstName = propertyData.ownerInfo?.name ? 
-      propertyData.ownerInfo.name.split(' ')[0] : '';
-    const ownerLastName = propertyData.ownerInfo?.name ? 
-      propertyData.ownerInfo.name.split(' ').slice(1).join(' ') : '';
-
-    // Create a unique property name to prevent duplicates
-    const customerFullName = `${ownerFirstName || ''} ${ownerLastName || ''}`.trim();
+    // Create unique property name
     const streetAddress = propertyData.address.streetAddress || '';
     const city = propertyData.address.city || '';
     
     const uniquePropertyName = [
-      customerFullName,
       streetAddress,
       city,
-      `(${Date.now().toString().substring(8)})`  // Add timestamp suffix for uniqueness
+      `Property (${Date.now().toString().substring(8)})`
     ].filter(Boolean).join(' - ');
     
-    // COMPLETE PAYLOAD: Format property data to match Zuper API requirements
+    // Format property data for Zuper API
     const formattedPropertyData = {
       property: {
-        // Basic property information
+        // Basic property info
         property_name: uniquePropertyName || 'Property',
         property_type: propertyData.propertyType || 'residential',
-        property_description: propertyData.description || '',
         
-        // Link to customer - using the plural form property_customers
+        // CRITICAL: Link to customer with property_customers (plural)
         property_customers: [{
           customer: customerId
         }],
         
-        // Organization info if needed
-        organization: null,
-        organization_uid: null,
-        
-        // Staff assignments
-        assigned_to: [],
-        
-        // Address information - using property_address (not address)
+        // CRITICAL: Use property_address (not address)
         property_address: {
           street: propertyData.address.streetAddress || '',
           city: propertyData.address.city || '',
           state: propertyData.address.state || '',
           country: propertyData.address.country || 'USA',
           zip_code: propertyData.address.zipCode || '',
-          landmark: '',
-          first_name: ownerFirstName,
-          last_name: ownerLastName,
-          phone_number: propertyData.ownerInfo?.phone || '',
-          email: propertyData.ownerInfo?.email || '',
-          // Add coordinates if available
           geo_cordinates: propertyData.address.latitude && propertyData.address.longitude ? 
             [propertyData.address.latitude, propertyData.address.longitude] : 
             undefined
         },
         
-        // Tax information
+        // Required fields based on API format
         tax: {
           tax_exempt: false,
           tax_group: ''
         },
         
-        // Parent property for hierarchical properties
-        parent_property: null,
-        
-        // Property image
-        property_image: '',
-        
-        // Custom fields for additional properties
+        // Custom fields for property attributes
         custom_fields: [
-          // Property attributes
           {
             label: "Year Built",
             value: String(propertyData.attributes?.yearBuilt || ''),
@@ -470,40 +390,8 @@ async createProperty(customerId, propertyData) {
             module_name: "PROPERTY"
           },
           {
-            label: "Lot Size",
-            value: String(propertyData.attributes?.lotSize || ''),
-            type: "TEXT",
-            module_name: "PROPERTY" 
-          },
-          
-          // Property features converted to strings
-          {
-            label: "Swimming Pool",
-            value: propertyData.features?.hasPool ? 'Yes' : 'No',
-            type: "TEXT",
-            module_name: "PROPERTY"
-          },
-          {
-            label: "Garage",
-            value: propertyData.features?.hasGarage ? 'Yes' : 'No',
-            type: "TEXT",
-            module_name: "PROPERTY"
-          },
-          {
             label: "Central Air",
             value: propertyData.features?.hasCentralAir ? 'Yes' : 'No',
-            type: "TEXT",
-            module_name: "PROPERTY"
-          },
-          {
-            label: "Basement",
-            value: propertyData.features?.hasBasement ? 'Yes' : 'No',
-            type: "TEXT",
-            module_name: "PROPERTY"
-          },
-          {
-            label: "Fireplace",
-            value: propertyData.features?.hasFireplace ? 'Yes' : 'No',
             type: "TEXT",
             module_name: "PROPERTY"
           }
@@ -514,31 +402,50 @@ async createProperty(customerId, propertyData) {
     console.log('Creating property with data:', JSON.stringify(formattedPropertyData, null, 2));
 
     // Make API request
-    const response = await this.makeProxiedRequest('properties', 'POST', null, formattedPropertyData);
+    const response = await this.makeProxiedRequest('property', 'POST', null, formattedPropertyData);
     
-    // Process response (using the updated response handling logic)
+    // Log full response for debugging
     console.log('Full property creation response:', JSON.stringify(response, null, 2));
     
-    // Extract property ID
+    // CRITICAL: Extract property ID from the exact response format
+    // For properties, the response has property_uid inside the data object:
+    // {
+    //   "message": "New Property Created successfully",
+    //   "data": {
+    //     "property_uid": "b8338490-30a0-11f0-8218-970c74a894a1"
+    //   },
+    //   "type": "success"
+    // }
+    
     let propertyId = null;
     
-    // Check for the known response format: data.property_uid
+    // Check for the exact response format (property_uid in data object)
     if (response.data && response.data.property_uid) {
       propertyId = response.data.property_uid;
       console.log('✅ Found property ID in data.property_uid:', propertyId);
-    } 
+    }
     // Fallback checks
     else if (response.property_uid) {
       propertyId = response.property_uid;
     }
-    else if (response.id || response.property_id) {
-      propertyId = response.id || response.property_id;
+    else if (response.id) {
+      propertyId = response.id;
     }
     
-    // If still no ID but success message, use temp ID
+    // If no ID found but success message exists
     if (!propertyId && response.message && response.message.toLowerCase().includes('success')) {
       console.warn('⚠️ Success message but no property ID found:', response.message);
-      propertyId = `temp-property-${Date.now()}`;
+      
+      // Try to extract ID from success message
+      const idMatch = response.message.match(/id[:=\s]+([^\s.,]+)/i);
+      if (idMatch && idMatch[1]) {
+        propertyId = idMatch[1];
+        console.log('Extracted property ID from message:', propertyId);
+      } else {
+        // Use temporary ID as last resort
+        propertyId = `temp-property-${Date.now()}`;
+        console.warn('⚠️ Using temporary property ID:', propertyId);
+      }
     }
     
     return {
