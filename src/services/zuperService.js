@@ -549,10 +549,10 @@ try {
       // Format job data for Zuper API
       const formattedJobData = {
         job: {
-          customer_id: jobData.customerId,
-          property_id: jobData.propertyId,
+          customer_uid: jobData.customerId,
+          property: jobData.propertyId,
           title: jobData.title || 'HVAC Service',
-          description: jobData.description || '',
+          job_description: jobData.job_description || '',
           job_category: jobData.jobCategory,
           priority: jobData.priority || 'medium',
           status: jobData.status || 'new',
