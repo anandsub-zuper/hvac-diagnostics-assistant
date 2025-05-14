@@ -219,9 +219,15 @@ const AssetCreation = ({
         
         // Set a default category if available
         if (categories.length > 0) {
+          // Look for an HVAC-specific category first
+          const hvacCategory = categories.find(cat => 
+            cat.name.toLowerCase().includes('hvac') || 
+            cat.name.toLowerCase().includes('equipment')
+          );
+          
           setAssetData(prev => ({
             ...prev,
-            assetCategory: categories[0].id
+            assetCategory: hvacCategory ? hvacCategory.id : (categories[0].id || '')
           }));
         }
       } catch (err) {
