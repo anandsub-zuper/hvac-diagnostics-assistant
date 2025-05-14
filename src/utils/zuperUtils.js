@@ -107,11 +107,11 @@ export const formatJobForZuper = (jobData, customerId, propertyId, assetIds, dia
     : '';
   
   return {
-    customer_id: customerId,
-    property_id: propertyId,
+    customer_uid: customerId,
+    property: propertyId,
     assets: assetIds || [],
     job_title: jobData.title || 'HVAC Service',
-    job_description: jobData.description || '',
+    job_description: jobData.job_description || '',
     job_type: jobData.jobType || 'service',
     priority: jobData.priority || 'medium',
     status: jobData.status || 'new',
