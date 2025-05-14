@@ -1,4 +1,4 @@
-// Updated zuperService.js with improved response handling
+// Complete zuperService.js file with updated property name logic
 
 import axios from 'axios';
 
@@ -252,10 +252,31 @@ class ZuperService {
    */
   async createProperty(customerId, propertyData) {
     try {
-      // Create property name based on address
-      const propertyName = propertyData.address ? 
-        `${propertyData.address.streetAddress}, ${propertyData.address.city}` : 
-        'Primary Property';
+      // Create property name based on customer name and address
+      // Get customer name from the property data if available
+      let customerName = '';
+      
+      // First try to get from ownerInfo (if available)
+      if (propertyData.ownerInfo && propertyData.ownerInfo.name) {
+        customerName = propertyData.ownerInfo.name;
+      }
+      // Try to get from customerData (if available)
+      else if (propertyData.customerData) {
+        const { firstName, lastName } = propertyData.customerData;
+        if (firstName || lastName) {
+          customerName = `${firstName || ''} ${lastName || ''}`.trim();
+        }
+      }
+      
+      // Format the property name with customer name and address
+      let propertyName = 'Primary Property';
+      if (propertyData.address) {
+        propertyName = customerName ? 
+          `${customerName} - ${propertyData.address.streetAddress}, ${propertyData.address.city}` : 
+          `${propertyData.address.streetAddress}, ${propertyData.address.city}`;
+      } else if (customerName) {
+        propertyName = `${customerName} Property`;
+      }
       
       // Format property data for Zuper API
       const formattedPropertyData = {
