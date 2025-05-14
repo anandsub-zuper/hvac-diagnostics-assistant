@@ -319,10 +319,6 @@ class ZuperService {
               label: "Bathrooms",
               value: String(propertyData.attributes?.bathrooms || '')
             },
-            {
-              label: "Central Air",
-              value: propertyData.features?.hasCentralAir ? 'Yes' : 'No'
-            },
             // Add all required property features from Rentcast
             {
               label: "Fireplace",
