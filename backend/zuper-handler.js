@@ -318,7 +318,7 @@ class ZuperHandler {
     }
   }
 
-  async createAsset(assetData) {
+async createAsset(assetData) {
   try {
     // Generate a unique asset code if not provided
     const assetCode = assetData.asset_code || `A${Math.floor(100000 + Math.random() * 900000)}`;
@@ -401,19 +401,24 @@ class ZuperHandler {
  */
 async getAssetCategories() {
   try {
-    // Make the API request to get asset categories
+    // Make the API request to get asset categories using the correct endpoint
     const response = await this.processRequest({
-      endpoint: 'asset-categories',
+      endpoint: 'assets/category',
       method: 'GET'
     });
     
-    // If the response has a data array, return it
-    if (response && response.data && Array.isArray(response.data)) {
-      return response.data;
+    // Parse the response according to the expected structure
+    if (response && response.type === "success" && Array.isArray(response.data)) {
+      // Map to a simpler format
+      return response.data.map(category => ({
+        id: category.category_uid,
+        name: category.category_name,
+        isActive: category.is_active
+      })).filter(category => category.isActive !== false);
     }
     
-    // If we don't have a proper data array, return an empty array
-    console.warn('Asset categories response did not contain expected data array:', response);
+    // If we don't have a proper data structure, return an empty array
+    console.warn('Asset categories response did not contain expected data structure:', response);
     return [];
   } catch (error) {
     console.error('Error fetching asset categories:', error);
